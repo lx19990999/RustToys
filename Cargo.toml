@@ -10,6 +10,7 @@ repository = "https://github.com/lx19990999/RustToys"
 assets = [
     ["target/release/rusttoys", "usr/bin/", "755"],
     ["assets/NotoSansSC-Regular.ttf", "usr/share/rusttoys/", "644"],
+    ["assets/FONT-LICENSE", "usr/share/rusttoys/", "644"],
 ]
 section = "utils"
 priority = "optional"
@@ -19,6 +20,7 @@ depends = "libgtk-3-0, libwebkit2gtk-4.1-0"
 assets = [
     { source = "target/release/rusttoys", dest = "/usr/bin/rusttoys", mode = "755" },
     { source = "assets/NotoSansSC-Regular.ttf", dest = "/usr/share/rusttoys/NotoSansSC-Regular.ttf", mode = "644" },
+    { source = "assets/FONT-LICENSE", dest = "/usr/share/rusttoys/FONT-LICENSE", mode = "644" },
 ]
 
 [dependencies]

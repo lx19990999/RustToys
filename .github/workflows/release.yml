@@ -43,6 +43,7 @@ jobs:
           mkdir -p RustToys.app/Contents/Resources
           cp target/release/rusttoys RustToys.app/Contents/MacOS/RustToys
           cp assets/NotoSansSC-Regular.ttf RustToys.app/Contents/Resources/
+          cp assets/FONT-LICENSE RustToys.app/Contents/Resources/
 
           cat > RustToys.app/Contents/Info.plist << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -170,6 +171,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist-zip
           Copy-Item target/release/rusttoys.exe dist-zip/
           Copy-Item assets/NotoSansSC-Regular.ttf dist-zip/
+          Copy-Item assets/FONT-LICENSE dist-zip/
           Compress-Archive -Path dist-zip/* -DestinationPath "RustToys-${{ github.ref_name }}-windows-x64.zip"
 
       - name: Upload Windows artifact
