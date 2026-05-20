@@ -1,0 +1,182 @@
+use eframe::egui;
+use crate::tool::{Tool, ToolCategory};
+use image::GenericImageView;
+
+const PROTANOPIA_MATRIX: [[f64; 3]; 3] = [
+    [0.567, 0.433, 0.0],
+    [0.558, 0.442, 0.0],
+    [0.0, 0.242, 0.758],
+];
+const DEUTERANOPIA_MATRIX: [[f64; 3]; 3] = [
+    [0.625, 0.375, 0.0],
+    [0.7, 0.3, 0.0],
+    [0.0, 0.3, 0.7],
+];
+const TRITANOPIA_MATRIX: [[f64; 3]; 3] = [
+    [0.95, 0.05, 0.0],
+    [0.0, 0.433, 0.567],
+    [0.0, 0.475, 0.525],
+];
+
+fn simulate_image(pixels: &[u8], width: u32, height: u32, matrix: [[f64; 3]; 3]) -> Vec<u8> {
+    let mut result = Vec::with_capacity(pixels.len());
+    for y in 0..height {
+        for x in 0..width {
+            let idx = (y * width + x) as usize * 4;
+            let r = pixels[idx];
+            let g = pixels[idx + 1];
+            let b = pixels[idx + 2];
+            let a = pixels[idx + 3];
+            let rf = r as f64 / 255.0;
+            let gf = g as f64 / 255.0;
+            let bf = b as f64 / 255.0;
+            let nr = (matrix[0][0] * rf + matrix[0][1] * gf + matrix[0][2] * bf).clamp(0.0, 1.0);
+            let ng = (matrix[1][0] * rf + matrix[1][1] * gf + matrix[1][2] * bf).clamp(0.0, 1.0);
+            let nb = (matrix[2][0] * rf + matrix[2][1] * gf + matrix[2][2] * bf).clamp(0.0, 1.0);
+            result.extend_from_slice(&[(nr * 255.0) as u8, (ng * 255.0) as u8, (nb * 255.0) as u8, a]);
+        }
+    }
+    result
+}
+
+pub struct ColorBlindness {
+    error: String,
+    image_loaded: bool,
+    img_width: u32,
+    img_height: u32,
+    pixel_sets: [Vec<u8>; 4], // original, proto, deuto, trito
+    textures: [Option<egui::TextureHandle>; 4],
+    textures_dirty: bool,
+}
+
+impl Default for ColorBlindness {
+    fn default() -> Self {
+        Self {
+            error: String::new(),
+            image_loaded: false,
+            img_width: 0,
+            img_height: 0,
+            pixel_sets: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
+            textures: [None, None, None, None],
+            textures_dirty: false,
+        }
+    }
+}
+
+impl ColorBlindness {
+    fn load_image(&mut self) {
+        if let Some(path) = rfd::FileDialog::new()
+            .set_title("Open image")
+            .add_filter("Image", &["png", "jpg", "jpeg", "bmp", "gif", "webp"])
+            .add_filter("All files", &["*"])
+            .pick_file()
+        {
+            self.error.clear();
+            match image::open(&path) {
+                Ok(img) => {
+                    let (w, h) = img.dimensions();
+                    let rgba = img.to_rgba8();
+                    let raw = rgba.into_raw();
+
+                    self.pixel_sets[0] = raw.clone();
+                    self.pixel_sets[1] = simulate_image(&raw, w, h, PROTANOPIA_MATRIX);
+                    self.pixel_sets[2] = simulate_image(&raw, w, h, DEUTERANOPIA_MATRIX);
+                    self.pixel_sets[3] = simulate_image(&raw, w, h, TRITANOPIA_MATRIX);
+
+                    self.img_width = w;
+                    self.img_height = h;
+                    self.image_loaded = true;
+                    self.textures_dirty = true;
+                    self.textures = [None, None, None, None];
+                }
+                Err(e) => self.error = format!("Failed to open image: {}", e),
+            }
+        }
+    }
+
+    fn ensure_textures(&mut self, ctx: &egui::Context) {
+        if !self.textures_dirty {
+            return;
+        }
+        self.textures_dirty = false;
+        for i in 0..4 {
+            let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                [self.img_width as usize, self.img_height as usize],
+                &self.pixel_sets[i],
+            );
+            if let Some(ref mut tex) = self.textures[i] {
+                tex.set(color_image, egui::TextureOptions::default());
+            } else {
+                let name = format!("cb_sim_{}", i);
+                self.textures[i] = Some(ctx.load_texture(&name, color_image, egui::TextureOptions::default()));
+            }
+        }
+    }
+
+    fn show_image(ui: &mut egui::Ui, tex: &egui::TextureHandle, w: u32, h: u32) {
+        let avail = ui.available_width().min(280.0);
+        let aspect = h as f32 / w as f32;
+        let dw = avail;
+        let dh = avail * aspect;
+        let max_h = 250.0;
+        let (dw, dh) = if dh > max_h { (max_h / aspect, max_h) } else { (dw, dh) };
+        ui.add(egui::Image::new(egui::load::SizedTexture::new(
+            tex.id(),
+            egui::Vec2::new(dw, dh),
+        )));
+    }
+
+}
+
+impl Tool for ColorBlindness {
+    fn name(&self) -> &str { "Color Blindness Simulator" }
+    fn description(&self) -> &str { "Simulate how images appear with different types of color blindness" }
+    fn category(&self) -> ToolCategory { ToolCategory::Graphic }
+
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            if ui.button("Open Image...").clicked() {
+                self.load_image();
+            }
+            if self.image_loaded {
+                ui.label(format!("{} x {} px", self.img_width, self.img_height));
+            }
+        });
+
+        if !self.error.is_empty() {
+            ui.colored_label(egui::Color32::RED, &self.error);
+        }
+
+        if self.image_loaded {
+            self.ensure_textures(ui.ctx());
+
+            let labels = ["Original", "Protanopia\n(Red-blind)", "Deuteranopia\n(Green-blind)", "Tritanopia\n(Blue-blind)"];
+
+            ui.add_space(8.0);
+            ui.columns(4, |cols| {
+                for i in 0..4 {
+                    cols[i].vertical_centered(|ui| {
+                        ui.label(egui::RichText::new(labels[i]).strong().size(13.0));
+                        ui.add_space(4.0);
+                        if let Some(ref tex) = self.textures[i] {
+                            Self::show_image(ui, tex, self.img_width, self.img_height);
+                        }
+                        ui.add_space(4.0);
+                        if ui.button("Save As...").clicked() {
+                            // Can't call self.save_view(i) due to borrow, inline it
+                            if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "PNG", &["png"], "simulation.png") {
+                                if let Some(img) = image::RgbaImage::from_raw(
+                                    self.img_width,
+                                    self.img_height,
+                                    self.pixel_sets[i].to_vec(),
+                                ) {
+                                    let _ = img.save(&path);
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    }
+}
