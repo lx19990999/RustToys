@@ -84,17 +84,24 @@ pub fn open_file_async_multi(
 
 /// Config-aware save file dialog. Uses lastsavefolder from config as initial
 /// directory, and records the chosen path back to config.
+/// The default filename gets a yyyyMMddHHmmss timestamp appended to avoid overwrites.
 pub fn save_file_dialog(
     title: &str,
     filter_name: &str,
     extensions: &[&str],
     default_name: &str,
 ) -> Option<PathBuf> {
+    let timestamp = chrono::Local::now().format("%Y%m%d%H%M%S");
+    let stamped_name = if let Some(dot_pos) = default_name.rfind('.') {
+        format!("{}_{}.{}", &default_name[..dot_pos], timestamp, &default_name[dot_pos + 1..])
+    } else {
+        format!("{}_{}", default_name, timestamp)
+    };
     let mut dialog = rfd::FileDialog::new()
         .set_title(title)
         .add_filter(filter_name, extensions)
         .add_filter("All files", &["*"])
-        .set_file_name(default_name);
+        .set_file_name(&stamped_name);
     if let Some(dir) = crate::config::get_save_folder() {
         dialog = dialog.set_directory(&dir);
     }
