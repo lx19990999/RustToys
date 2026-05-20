@@ -12,6 +12,7 @@ pub trait Tool {
 pub enum ToolCategory {
     Converters,
     Encoders,
+    Encryption,
     Formatters,
     Generators,
     Graphic,
@@ -24,6 +25,7 @@ impl ToolCategory {
         match self {
             Self::Converters => "Converters",
             Self::Encoders => "Encoders / Decoders",
+            Self::Encryption => "加密/解密",
             Self::Formatters => "Formatters",
             Self::Generators => "Generators",
             Self::Graphic => "Graphic",
@@ -36,6 +38,7 @@ impl ToolCategory {
         &[
             Self::Converters,
             Self::Encoders,
+            Self::Encryption,
             Self::Formatters,
             Self::Generators,
             Self::Graphic,
