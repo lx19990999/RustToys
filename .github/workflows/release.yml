@@ -120,61 +120,6 @@ jobs:
       - name: Copy .rpm artifact
         run: cp target/generate-rpm/*.rpm . 2>/dev/null || true
 
-      # AppImage
-      - name: Build AppImage
-        run: |
-          VERSION=${GITHUB_REF_NAME#v}
-
-          # Create AppDir structure
-          mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-
-          cp target/release/rusttoys AppDir/usr/bin/RustToys
-          cp assets/NotoSansSC-Regular.ttf AppDir/usr/bin/
-
-          # Desktop entry
-          cat > AppDir/usr/share/applications/rusttoys.desktop << 'DESKTOP'
-          [Desktop Entry]
-          Name=RustToys
-          Comment=A Swiss Army knife for developers
-          Exec=RustToys
-          Icon=rusttoys
-          Type=Application
-          Categories=Development;Utility;
-          Terminal=false
-          DESKTOP
-
-          cp AppDir/usr/share/applications/rusttoys.desktop AppDir/
-
-          # Icon (placeholder — replace with a real icon)
-          if [ -f assets/icon.png ]; then
-            cp assets/icon.png AppDir/usr/share/icons/hicolor/256x256/apps/rusttoys.png
-            cp assets/icon.png AppDir/rusttoys.png
-          else
-            # Generate a minimal placeholder icon
-            convert -size 256x256 xc:'#2196F3' -gravity center -pointsize 80 -fill white -annotate 0 'RT' AppDir/rusttoys.png 2>/dev/null || true
-            [ -f AppDir/rusttoys.png ] && cp AppDir/rusttoys.png AppDir/usr/share/icons/hicolor/256x256/apps/rusttoys.png
-          fi
-
-          # AppRun
-          cat > AppDir/AppRun << 'APPRUN'
-          #!/bin/sh
-          SELF=$(readlink -f "$0")
-          HERE=${SELF%/*}
-          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-          export XDG_DATA_DIRS="${HERE}/usr/share:${XDG_DATA_DIRS}"
-          exec "${HERE}/usr/bin/RustToys" "$@"
-          APPRUN
-          chmod +x AppDir/AppRun
-
-          # Download appimagetool
-          wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
-          chmod +x appimagetool
-
-          # Build AppImage
-          ARCH=x86_64 ./appimagetool AppDir "RustToys-${VERSION}-x86_64.AppImage"
-
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -182,7 +127,6 @@ jobs:
           path: |
             *.deb
             *.rpm
-            *.AppImage
 
   build-windows:
     runs-on: windows-latest
@@ -204,59 +148,6 @@ jobs:
       - name: Build release
         run: cargo build --release
 
-      - name: Setup NSIS
-        uses: joncloud/makensis-action@v4
-        with:
-          script-file: ""
-
-      - name: Create NSIS installer script
-        shell: cmd
-        run: |
-          (
-          echo !include "MUI2.nsh"
-          echo !define APP_NAME "RustToys"
-          echo !define APP_VERSION "${{ github.ref_name }}"
-          echo !define INSTALL_DIR "$PROGRAMFILES\RustToys"
-          echo.
-          echo Name "${APP_NAME} ${APP_VERSION}"
-          echo OutFile "RustToys-${{ github.ref_name }}-windows-x64-installer.exe"
-          echo InstallDir "${INSTALL_DIR}"
-          echo RequestExecutionLevel admin
-          echo.
-          echo !insertmacro MUI_PAGE_DIRECTORY
-          echo !insertmacro MUI_PAGE_INSTFILES
-          echo !insertmacro MUI_UNPAGE_CONFIRM
-          echo !insertmacro MUI_UNPAGE_INSTFILES
-          echo !insertmacro MUI_LANGUAGE "English"
-          echo.
-          echo Section "Install"
-          echo   SetOutPath "$INSTDIR"
-          echo   File "target\release\rusttoys.exe"
-          echo   File "assets\NotoSansSC-Regular.ttf"
-          echo   CreateShortCut "$DESKTOP\RustToys.lnk" "$INSTDIR\rusttoys.exe"
-          echo   CreateDirectory "$SMPROGRAMS\RustToys"
-          echo   CreateShortCut "$SMPROGRAMS\RustToys\RustToys.lnk" "$INSTDIR\rusttoys.exe"
-          echo   WriteUninstaller "$INSTDIR\Uninstall.exe"
-          echo   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RustToys" "DisplayName" "RustToys"
-          echo   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RustToys" "UninstallString" "$INSTDIR\Uninstall.exe"
-          echo   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RustToys" "DisplayVersion" "${APP_VERSION}"
-          echo SectionEnd
-          echo.
-          echo Section "Uninstall"
-          echo   Delete "$INSTDIR\rusttoys.exe"
-          echo   Delete "$INSTDIR\NotoSansSC-Regular.ttf"
-          echo   Delete "$INSTDIR\Uninstall.exe"
-          echo   Delete "$DESKTOP\RustToys.lnk"
-          echo   RMDir /r "$SMPROGRAMS\RustToys"
-          echo   RMDir "$INSTDIR"
-          echo   DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RustToys"
-          echo SectionEnd
-          ) > installer.nsi
-
-      - name: Build NSIS installer
-        shell: cmd
-        run: makensis installer.nsi
-
       - name: Package Windows zip
         shell: pwsh
         run: |
@@ -270,7 +161,6 @@ jobs:
         with:
           name: RustToys-windows
           path: |
-            RustToys-*-windows-x64-installer.exe
             RustToys-*-windows-x64.zip
 
   release:
@@ -288,8 +178,6 @@ jobs:
           cp dist/RustToys-macos/*.zip release/
           cp dist/RustToys-linux/*.deb release/
           cp dist/RustToys-linux/*.rpm release/ 2>/dev/null || true
-          cp dist/RustToys-linux/*.AppImage release/
-          cp dist/RustToys-windows/*.exe release/
           cp dist/RustToys-windows/*.zip release/
           ls -lh release/
 
