@@ -3,6 +3,7 @@ mod date_converter;
 mod json_table;
 mod json_yaml;
 mod number_base;
+mod yaml_properties;
 
 use crate::tool::Tool;
 
@@ -13,5 +14,6 @@ pub fn tools() -> Vec<Box<dyn Tool>> {
         Box::new(json_table::JsonTable::default()),
         Box::new(json_yaml::JsonYaml::default()),
         Box::new(number_base::NumberBase::default()),
+        Box::new(yaml_properties::YamlProperties::default()),
     ]
 }
