@@ -10,6 +10,8 @@ pub struct AsymmetricEncryption {
     public_key: String,
     private_key: String,
     pending_file: Pending<String>,
+    pending_pub_file: Pending<String>,
+    pending_priv_file: Pending<String>,
 }
 
 impl Default for AsymmetricEncryption {
@@ -22,6 +24,8 @@ impl Default for AsymmetricEncryption {
             public_key: String::new(),
             private_key: String::new(),
             pending_file: Pending::default(),
+            pending_pub_file: Pending::default(),
+            pending_priv_file: Pending::default(),
         }
     }
 }
@@ -37,6 +41,16 @@ impl Tool for AsymmetricEncryption {
                 self.input = text;
             }
         }
+        if let Some(text) = self.pending_pub_file.poll() {
+            if !text.starts_with("Error reading file:") {
+                self.public_key = text;
+            }
+        }
+        if let Some(text) = self.pending_priv_file.poll() {
+            if !text.starts_with("Error reading file:") {
+                self.private_key = text;
+            }
+        }
 
         // Mode selector
         ui.horizontal(|ui| {
@@ -47,6 +61,28 @@ impl Tool for AsymmetricEncryption {
 
         // Public Key
         ui.label("Public Key (PEM):");
+        ui.horizontal(|ui| {
+            if ui.button("Paste").clicked() {
+                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                    Ok(text) => self.public_key = text,
+                    Err(e) => self.error = format!("Clipboard error: {}", e),
+                }
+            }
+            if ui.button("Open File...").clicked() {
+                open_file_async(&mut self.pending_pub_file, "Open public key", "PEM", &["pem", "pub", "key"]);
+            }
+            if ui.button("Clear").clicked() {
+                self.public_key.clear();
+            }
+            if ui.button("Copy").clicked() && !self.public_key.is_empty() {
+                ui.ctx().copy_text(self.public_key.clone());
+            }
+            if ui.button("Save As...").clicked() && !self.public_key.is_empty() {
+                if let Some(path) = crate::tools::async_utils::save_file_dialog("Save public key", "PEM", &["pem"], "public_key.pem") {
+                    let _ = std::fs::write(path, &self.public_key);
+                }
+            }
+        });
         egui::ScrollArea::vertical()
             .id_salt("rsa_pub_scroll")
             .max_height(60.0)
@@ -60,6 +96,28 @@ impl Tool for AsymmetricEncryption {
 
         // Private Key
         ui.label("Private Key (PEM):");
+        ui.horizontal(|ui| {
+            if ui.button("Paste").clicked() {
+                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                    Ok(text) => self.private_key = text,
+                    Err(e) => self.error = format!("Clipboard error: {}", e),
+                }
+            }
+            if ui.button("Open File...").clicked() {
+                open_file_async(&mut self.pending_priv_file, "Open private key", "PEM", &["pem", "key"]);
+            }
+            if ui.button("Clear").clicked() {
+                self.private_key.clear();
+            }
+            if ui.button("Copy").clicked() && !self.private_key.is_empty() {
+                ui.ctx().copy_text(self.private_key.clone());
+            }
+            if ui.button("Save As...").clicked() && !self.private_key.is_empty() {
+                if let Some(path) = crate::tools::async_utils::save_file_dialog("Save private key", "PEM", &["pem"], "private_key.pem") {
+                    let _ = std::fs::write(path, &self.private_key);
+                }
+            }
+        });
         egui::ScrollArea::vertical()
             .id_salt("rsa_priv_scroll")
             .max_height(60.0)
@@ -210,6 +268,8 @@ impl AsymmetricEncryption {
         use rsa::Oaep;
         use sha2::Sha256;
         use base64::Engine;
+        use aes_gcm::{Aes256Gcm, KeyInit, aead::{Aead, AeadCore}};
+        use aes_gcm::aead::Nonce;
 
         let public_key = match rsa::RsaPublicKey::from_public_key_pem(self.public_key.trim()) {
             Ok(pk) => pk,
@@ -219,12 +279,47 @@ impl AsymmetricEncryption {
             }
         };
 
-        let padding = Oaep::new::<Sha256>();
+        // Generate random AES-256 key and nonce
         let mut rng = rand::thread_rng();
-        match public_key.encrypt(&mut rng, padding, self.input.as_bytes()) {
-            Ok(ciphertext) => self.output = base64::engine::general_purpose::STANDARD.encode(&ciphertext),
-            Err(e) => self.error = format!("Encrypt error: {}", e),
-        }
+        let aes_key = Aes256Gcm::generate_key(&mut rng);
+        let nonce_bytes = Aes256Gcm::generate_nonce(&mut rng);
+        let nonce = Nonce::<Aes256Gcm>::from_slice(&nonce_bytes);
+
+        // Encrypt data with AES-256-GCM
+        let cipher = match Aes256Gcm::new_from_slice(&aes_key) {
+            Ok(c) => c,
+            Err(e) => {
+                self.error = format!("AES init error: {}", e);
+                return;
+            }
+        };
+        let aes_ciphertext = match cipher.encrypt(nonce, self.input.as_bytes()) {
+            Ok(ct) => ct,
+            Err(e) => {
+                self.error = format!("AES encrypt error: {}", e);
+                return;
+            }
+        };
+
+        // Encrypt AES key with RSA-OAEP
+        let padding = Oaep::new::<Sha256>();
+        let encrypted_key = match public_key.encrypt(&mut rng, padding, &aes_key) {
+            Ok(k) => k,
+            Err(e) => {
+                self.error = format!("Encrypt error: {}", e);
+                return;
+            }
+        };
+
+        // Format: [encrypted_key_len:4 bytes BE][encrypted_key][nonce:12 bytes][aes_ciphertext]
+        let mut output = Vec::new();
+        let key_len = encrypted_key.len() as u32;
+        output.extend_from_slice(&key_len.to_be_bytes());
+        output.extend_from_slice(&encrypted_key);
+        output.extend_from_slice(&nonce_bytes);
+        output.extend_from_slice(&aes_ciphertext);
+
+        self.output = base64::engine::general_purpose::STANDARD.encode(&output);
     }
 
     fn do_decrypt(&mut self) {
@@ -232,6 +327,8 @@ impl AsymmetricEncryption {
         use rsa::Oaep;
         use sha2::Sha256;
         use base64::Engine;
+        use aes_gcm::{Aes256Gcm, KeyInit, aead::Aead};
+        use aes_gcm::aead::Nonce;
 
         let private_key = match rsa::RsaPrivateKey::from_pkcs8_pem(self.private_key.trim()) {
             Ok(pk) => pk,
@@ -241,7 +338,7 @@ impl AsymmetricEncryption {
             }
         };
 
-        let ciphertext = match base64::engine::general_purpose::STANDARD.decode(self.input.trim()) {
+        let data = match base64::engine::general_purpose::STANDARD.decode(self.input.trim()) {
             Ok(b) => b,
             Err(e) => {
                 self.error = format!("Base64 error: {}", e);
@@ -249,15 +346,50 @@ impl AsymmetricEncryption {
             }
         };
 
+        // Parse format: [encrypted_key_len:4 bytes BE][encrypted_key][nonce:12 bytes][aes_ciphertext]
+        if data.len() < 4 {
+            self.error = "Invalid hybrid ciphertext: too short".to_string();
+            return;
+        }
+        let key_len = u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as usize;
+        if data.len() < 4 + key_len + 12 {
+            self.error = "Invalid hybrid ciphertext: truncated".to_string();
+            return;
+        }
+        let encrypted_key = &data[4..4 + key_len];
+        let nonce_bytes = &data[4 + key_len..4 + key_len + 12];
+        let aes_ciphertext = &data[4 + key_len + 12..];
+        let nonce = Nonce::<Aes256Gcm>::from_slice(nonce_bytes);
+
+        // Decrypt AES key with RSA-OAEP
         let padding = Oaep::new::<Sha256>();
-        match private_key.decrypt(padding, &ciphertext) {
-            Ok(plaintext) => {
-                match String::from_utf8(plaintext) {
-                    Ok(s) => self.output = s,
-                    Err(e) => self.error = format!("UTF-8 error: {}", e),
-                }
+        let aes_key = match private_key.decrypt(padding, encrypted_key) {
+            Ok(k) => k,
+            Err(e) => {
+                self.error = format!("Decrypt error: {}", e);
+                return;
             }
-            Err(e) => self.error = format!("Decrypt error: {}", e),
+        };
+
+        // Decrypt data with AES-256-GCM
+        let cipher = match Aes256Gcm::new_from_slice(&aes_key) {
+            Ok(c) => c,
+            Err(e) => {
+                self.error = format!("AES init error: {}", e);
+                return;
+            }
+        };
+        let plaintext = match cipher.decrypt(nonce, aes_ciphertext) {
+            Ok(pt) => pt,
+            Err(e) => {
+                self.error = format!("AES decrypt error: {}", e);
+                return;
+            }
+        };
+
+        match String::from_utf8(plaintext) {
+            Ok(s) => self.output = s,
+            Err(e) => self.error = format!("UTF-8 error: {}", e),
         }
     }
 }
