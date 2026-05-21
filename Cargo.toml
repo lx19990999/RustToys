@@ -59,3 +59,4 @@ aes = "0.8"
 aes-gcm = "0.10"
 des = "0.8"
 rsa = "0.9"
+tungstenite = { version = "0.21", features = ["native-tls"] }

@@ -992,6 +992,27 @@ fn en(key: &str) -> Option<&'static str> {
         "ping_sort_input" => Some("Input Order"),
         "ping_sort_latency" => Some("By Latency"),
 
+        // WebSocket
+        "ws_name" => Some("WebSocket"),
+        "ws_desc" => Some("WebSocket client: connect, send/receive messages, auto-reconnect and heartbeat support"),
+        "ws_save_default" => Some("websocket_log.txt"),
+        "ws_btn_connect" => Some("Connect"),
+        "ws_btn_disconnect" => Some("Disconnect"),
+        "ws_btn_send" => Some("Send"),
+        "ws_auto_reconnect" => Some("Auto-Reconnect"),
+        "ws_heartbeat" => Some("Heartbeat"),
+        "ws_heartbeat_sec" => Some("sec"),
+        "ws_heartbeat_hint" => Some("heartbeat message"),
+        "ws_connected" => Some("Connected"),
+        "ws_disconnected" => Some("Disconnected"),
+        "ws_connecting" => Some("Connecting..."),
+        "ws_reconnecting" => Some("Reconnecting..."),
+        "ws_msg_sent" => Some("Sent"),
+        "ws_msg_recv" => Some("Recv"),
+        "ws_msg_error" => Some("Error"),
+        "ws_msg_sys" => Some("Sys"),
+        "ws_invalid_url" => Some("Please enter a valid WebSocket URL (ws:// or wss://)"),
+
         // Fallback
         _ => None,
     }
@@ -1779,6 +1800,27 @@ fn zh(key: &str) -> Option<String> {
         "ping_header" => Some("主机                            状态        耗时(ms)    详情".to_string()),
         "ping_sort_input" => Some("输入顺序".to_string()),
         "ping_sort_latency" => Some("延迟排序".to_string()),
+
+        // WebSocket
+        "ws_name" => Some("WebSocket".to_string()),
+        "ws_desc" => Some("WebSocket 客户端：连接、收发消息、自动重连与心跳".to_string()),
+        "ws_save_default" => Some("websocket_日志.txt".to_string()),
+        "ws_btn_connect" => Some("连接".to_string()),
+        "ws_btn_disconnect" => Some("断开".to_string()),
+        "ws_btn_send" => Some("发送".to_string()),
+        "ws_auto_reconnect" => Some("断线重连".to_string()),
+        "ws_heartbeat" => Some("心跳".to_string()),
+        "ws_heartbeat_sec" => Some("秒".to_string()),
+        "ws_heartbeat_hint" => Some("心跳消息内容".to_string()),
+        "ws_connected" => Some("已连接".to_string()),
+        "ws_disconnected" => Some("未连接".to_string()),
+        "ws_connecting" => Some("连接中...".to_string()),
+        "ws_reconnecting" => Some("重连中...".to_string()),
+        "ws_msg_sent" => Some("发送".to_string()),
+        "ws_msg_recv" => Some("接收".to_string()),
+        "ws_msg_error" => Some("错误".to_string()),
+        "ws_msg_sys" => Some("系统".to_string()),
+        "ws_invalid_url" => Some("请输入有效的 WebSocket 地址 (ws:// 或 wss://)".to_string()),
 
         // Fallback
         _ => None,

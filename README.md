@@ -4,7 +4,7 @@ A Swiss Army knife for developers, built with Rust and [egui](https://github.com
 
 ## Features
 
-35 developer tools across 9 categories, all running natively with no browser dependency.
+36 developer tools across 9 categories, all running natively with no browser dependency.
 
 ### Converters
 
@@ -78,6 +78,7 @@ A Swiss Army knife for developers, built with Rust and [egui](https://github.com
 | Tool | Description |
 |------|-------------|
 | Ping Speed Test | Ping multiple hosts asynchronously, display latency and status |
+| WebSocket | WebSocket client with send/receive, auto-reconnect and heartbeat |
 
 ## Internationalization
 
