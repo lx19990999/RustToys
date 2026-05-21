@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 use serde_json::Value;
@@ -45,7 +46,7 @@ impl JsonPathTester {
                     Ok(results) => {
                         self.match_count = results.len();
                         if results.is_empty() {
-                            self.output = "No match found".to_string();
+                            self.output = tr!("jp_no_match");
                         } else {
                             let formatted: Vec<String> = results.iter()
                                 .map(|v| serde_json::to_string_pretty(v).unwrap_or_else(|_| v.to_string()))
@@ -56,7 +57,7 @@ impl JsonPathTester {
                     Err(e) => self.error = e,
                 }
             }
-            Err(e) => self.error = format!("JSON parse error: {}", e),
+            Err(e) => self.error = tr!("jy_json_parse_error", e),
         }
     }
 
@@ -70,13 +71,14 @@ impl JsonPathTester {
 }
 
 impl Tool for JsonPathTester {
-    fn name(&self) -> &str { "JSONPath Tester" }
-    fn description(&self) -> &str { "Test JSONPath queries against JSON data" }
+    fn name(&self) -> String { tr!("jp_name") }
+    fn description(&self) -> String { tr!("jp_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Testers }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let err_reading = tr!("err_error_reading");
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&err_reading) {
                 self.json_input = text;
                 self.error.clear();
             }
@@ -104,20 +106,27 @@ impl Tool for JsonPathTester {
             total.min,
             egui::vec2(half_w, cols_h),
         );
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_json = tr!("jp_json_label");
+
         ui.scope_builder(egui::UiBuilder::new().max_rect(left_rect), |ui| {
-            ui.label(egui::RichText::new("JSON").strong());
+            ui.label(egui::RichText::new(&lbl_json).strong());
             ui.add_space(space);
             ui.horizontal(|ui| {
-                if ui.button("Paste").clicked() {
+                if ui.button(&lbl_paste).clicked() {
                     match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                         Ok(text) => { self.json_input = text; self.error.clear(); }
-                        Err(e) => self.error = format!("Clipboard error: {}", e),
+                        Err(e) => self.error = tr!("err_clipboard", e),
                     }
                 }
-                if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open JSON file", "JSON", &["json"]);
+                if ui.button(&lbl_open).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("btn_open_file"), &tr!("jp_json_label"), &["json"]);
                 }
-                if ui.button("Clear").clicked() {
+                if ui.button(&lbl_clear).clicked() {
                     self.json_input.clear();
                     self.output.clear();
                     self.error.clear();
@@ -138,23 +147,25 @@ impl Tool for JsonPathTester {
             total.min + egui::vec2(half_w + pad, 0.0),
             egui::vec2(half_w, cols_h),
         );
+        let lbl_result = tr!("jp_result_label");
+        let lbl_match_plural = tr!("jp_match_plural");
         ui.scope_builder(egui::UiBuilder::new().max_rect(right_rect), |ui| {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("Test result").strong());
+                ui.label(egui::RichText::new(&lbl_result).strong());
                 if self.match_count > 0 {
                     ui.label(
-                        egui::RichText::new(format!("({} match{})", self.match_count, if self.match_count == 1 { "" } else { "es" }))
+                        egui::RichText::new(tr!("jp_match_count", self.match_count, if self.match_count == 1 { "" } else { &lbl_match_plural }))
                             .small().color(egui::Color32::GRAY),
                     );
                 }
             });
             ui.add_space(space);
             ui.horizontal(|ui| {
-                if ui.button("Copy").clicked() && !self.output.is_empty() {
+                if ui.button(&lbl_copy).clicked() && !self.output.is_empty() {
                     ui.ctx().copy_text(self.output.clone());
                 }
-                if ui.button("Save As...").clicked() && !self.output.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "JSON", &["json"], "jsonpath_result.json") {
+                if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("jp_json_label"), &["json"], &tr!("jp_save_default")) {
                         let _ = std::fs::write(path, &self.output);
                     }
                 }
@@ -174,13 +185,15 @@ impl Tool for JsonPathTester {
             egui::pos2(total.min.x, query_y),
             egui::vec2(w, query_h),
         );
+        let lbl_jp_query = tr!("jp_query_label");
+        let lbl_jp_hint = tr!("jp_hint");
         ui.scope_builder(egui::UiBuilder::new().max_rect(query_rect), |ui| {
             ui.horizontal(|ui| {
-                ui.label("JSONPath:");
+                ui.label(&lbl_jp_query);
                 ui.add(
                     egui::TextEdit::singleline(&mut self.path_input)
                         .desired_width(ui.available_width())
-                        .hint_text("$.store.book[*].author"),
+                        .hint_text(&lbl_jp_hint),
                 );
             });
         });
@@ -205,9 +218,10 @@ impl Tool for JsonPathTester {
             egui::pos2(total.min.x, cheat_y),
             egui::vec2(w, cheat_h),
         );
+        let lbl_cheatsheet = tr!("jp_cheatsheet");
         ui.scope_builder(egui::UiBuilder::new().max_rect(cheat_rect), |ui| {
             ui.group(|ui| {
-                ui.label(egui::RichText::new("Cheat sheet").strong());
+                ui.label(egui::RichText::new(&lbl_cheatsheet).strong());
                 ui.separator();
 
                 let entries: &[(&str, &str)] = &[
@@ -250,10 +264,10 @@ impl Tool for JsonPathTester {
 fn evaluate_jsonpath(root: &Value, path: &str) -> Result<Vec<Value>, String> {
     let path = path.trim();
     if path.is_empty() {
-        return Err("Empty JSONPath expression".to_string());
+        return Err(tr!("jp_empty_expr"));
     }
     if !path.starts_with('$') {
-        return Err("JSONPath must start with '$'".to_string());
+        return Err(tr!("jp_must_start_dollar"));
     }
     let tokens = tokenize_jsonpath(path)?;
     let mut results = vec![root.clone()];

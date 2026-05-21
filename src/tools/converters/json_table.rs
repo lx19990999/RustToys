@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async};
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -37,19 +38,19 @@ impl Default for JsonTable {
 
 
 impl Tool for JsonTable {
-    fn name(&self) -> &str { "JSON > Table" }
-    fn description(&self) -> &str { "JSON array to tabular form converter tool" }
+    fn name(&self) -> String { tr!("jt_name") }
+    fn description(&self) -> String { tr!("jt_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
         }
         ui.horizontal(|ui| {
-            ui.checkbox(&mut self.flatten_nested, "Flatten nested objects");
-            ui.checkbox(&mut self.sort_alpha, "Sort columns alphabetically");
+            ui.checkbox(&mut self.flatten_nested, tr!("jt_flatten"));
+            ui.checkbox(&mut self.sort_alpha, tr!("jt_sort_columns"));
         });
         ui.add_space(4.0);
 
@@ -62,16 +63,16 @@ impl Tool for JsonTable {
             // Left: Input panel
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
-                        open_file_async(&mut self.pending_file, "Open JSON file", "JSON", &["json"]);
+                    if ui.button(tr!("btn_open_file")).clicked() {
+                        open_file_async(&mut self.pending_file, &tr!("save_as_title"), "JSON", &["json"]);
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.headers.clear();
                         self.rows.clear();
@@ -80,7 +81,7 @@ impl Tool for JsonTable {
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("JSON Input:");
+                ui.label(tr!("jt_input_label"));
 
                 // ScrollArea provides mouse-wheel scrolling.
                 // TextEdit uses scroll_to_rect() to keep cursor in view — requires parent ScrollArea.
@@ -105,33 +106,33 @@ impl Tool for JsonTable {
                 }
 
                 if self.headers.is_empty() {
-                    ui.label(egui::RichText::new("Table output will appear here").italics().weak());
+                    ui.label(egui::RichText::new(tr!("jt_placeholder")).italics().weak());
                     return;
                 }
 
-                ui.label(format!("Rows: {} | Columns: {}", self.rows.len(), self.headers.len()));
+                ui.label(tr!("jt_rows_cols", self.rows.len(), self.headers.len()));
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy CSV").clicked() {
+                    if ui.button(tr!("btn_copy_csv")).clicked() {
                         ui.ctx().copy_text(self.to_csv(","));
                     }
-                    if ui.button("Copy TSV").clicked() {
+                    if ui.button(tr!("btn_copy_tsv")).clicked() {
                         ui.ctx().copy_text(self.to_csv("\t"));
                     }
-                    if ui.button("Copy Markdown").clicked() {
+                    if ui.button(tr!("btn_copy_markdown")).clicked() {
                         ui.ctx().copy_text(self.to_markdown());
                     }
                 });
                 ui.add_space(2.0);
 
                 ui.horizontal(|ui| {
-                    if ui.button("Save CSV...").clicked() {
+                    if ui.button(tr!("btn_save_csv")).clicked() {
                         self.save_as_file("csv", &self.to_csv(","));
                     }
-                    if ui.button("Save TSV...").clicked() {
+                    if ui.button(tr!("btn_save_tsv")).clicked() {
                         self.save_as_file("tsv", &self.to_csv("\t"));
                     }
-                    if ui.button("Save JSON...").clicked() {
+                    if ui.button(tr!("btn_save_json")).clicked() {
                         self.save_as_file("json", &self.input);
                     }
                 });
@@ -262,7 +263,7 @@ impl JsonTable {
         let parsed: Value = match serde_json::from_str(&self.input) {
             Ok(v) => v,
             Err(e) => {
-                self.error = format!("JSON parse error: {}", e);
+                self.error = tr!("jt_json_parse_error", e);
                 return;
             }
         };
@@ -270,13 +271,13 @@ impl JsonTable {
         let arr = match parsed {
             Value::Array(a) => a,
             _ => {
-                self.error = "Please provide a valid JSON array of objects".to_string();
+                self.error = tr!("jt_need_array");
                 return;
             }
         };
 
         if arr.is_empty() {
-            self.error = "Array is empty".to_string();
+            self.error = tr!("jt_empty_array");
             return;
         }
 
@@ -287,8 +288,8 @@ impl JsonTable {
             let obj = match item {
                 Value::Object(o) => o,
                 _ => {
-                    flat_rows.push([("value".to_string(), json_to_string(item))].into_iter().collect());
-                    all_keys.insert("value".to_string());
+                    flat_rows.push([(tr!("jt_value"), json_to_string(item))].into_iter().collect());
+                    all_keys.insert(tr!("jt_value"));
                     continue;
                 }
             };
@@ -363,7 +364,7 @@ impl JsonTable {
 
     fn save_as_file(&self, ext: &str, content: &str) {
         let path = crate::tools::async_utils::save_file_dialog(
-            &format!("Save as {}", ext.to_uppercase()),
+            &tr!("jt_save_as", ext.to_uppercase()),
             &ext.to_uppercase(),
             &[ext],
             &format!("table.{}", ext),

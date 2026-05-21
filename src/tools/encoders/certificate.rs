@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use base64::Engine;
 
 #[derive(Default)]
@@ -10,8 +11,8 @@ pub struct CertificateDecoder {
 }
 
 impl Tool for CertificateDecoder {
-    fn name(&self) -> &str { "Certificate Decoder" }
-    fn description(&self) -> &str { "Decode PEM/DER certificates and display their properties" }
+    fn name(&self) -> String { tr!("cert_name") }
+    fn description(&self) -> String { tr!("cert_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
@@ -20,17 +21,17 @@ impl Tool for CertificateDecoder {
         ui.columns(2, |cols| {
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
+                    if ui.button(tr!("btn_open_file")).clicked() {
                         if let Some(path) = rfd::FileDialog::new()
-                            .set_title("Open certificate")
-                            .add_filter("PEM/DER", &["pem", "crt", "cer", "der", "key"])
-                            .add_filter("All files", &["*"])
+                            .set_title(&tr!("cert_open_title"))
+                            .add_filter(&tr!("cert_filter"), &["pem", "crt", "cer", "der", "key"])
+                            .add_filter(&tr!("save_filter_all"), &["*"])
                             .pick_file()
                         {
                             match std::fs::read(&path) {
@@ -49,18 +50,18 @@ impl Tool for CertificateDecoder {
                                             wrap_lines(&b64, 64));
                                     }
                                 }
-                                Err(e) => self.error = format!("File read error: {}", e),
+                                Err(e) => self.error = tr!("err_file_read", e),
                             }
                         }
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("PEM Certificate:");
+                ui.label(tr!("cert_input_label"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("cert_input_scroll")
@@ -81,17 +82,17 @@ impl Tool for CertificateDecoder {
                 }
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "cert_info.txt") {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("cert_save_default")) {
                             let _ = std::fs::write(path, &self.output);
                         }
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("Certificate Info:");
+                ui.label(tr!("cert_output_label"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("cert_output_scroll")
@@ -138,15 +139,21 @@ impl CertificateDecoder {
                     if !t.is_empty() { b64_data.push_str(t); }
                 }
 
-                info.push_str(&format!("Block: {}\n", block_type));
-                info.push_str(&format!("Base64 length: {} chars\n", b64_data.len()));
+                info.push_str(&tr!("cert_block", block_type));
+                info.push('\n');
+                info.push_str(&tr!("cert_base64_len", b64_data.len()));
+                info.push('\n');
 
                 match base64::engine::general_purpose::STANDARD.decode(&b64_data) {
                     Ok(der) => {
-                        info.push_str(&format!("DER data: {} bytes\n", der.len()));
+                        info.push_str(&tr!("cert_der_data", der.len()));
+                        info.push('\n');
                         self.parse_x509(&der, &mut info);
                     }
-                    Err(e) => info.push_str(&format!("Base64 error: {}\n", e)),
+                    Err(e) => {
+                        info.push_str(&tr!("cert_base64_error", e));
+                        info.push('\n');
+                    }
                 }
             }
         }
@@ -155,12 +162,14 @@ impl CertificateDecoder {
             let cleaned: String = pem.chars().filter(|c| !c.is_whitespace()).collect();
             match base64::engine::general_purpose::STANDARD.decode(&cleaned) {
                 Ok(der) => {
-                    info.push_str("Raw DER certificate\n");
-                    info.push_str(&format!("DER data: {} bytes\n", der.len()));
+                    info.push_str(&tr!("cert_raw_der"));
+                    info.push('\n');
+                    info.push_str(&tr!("cert_der_data", der.len()));
+                    info.push('\n');
                     self.parse_x509(&der, &mut info);
                 }
                 Err(_) => {
-                    self.error = "No PEM block found. Expected -----BEGIN ...----- header.".into();
+                    self.error = tr!("cert_no_pem");
                     return;
                 }
             }
@@ -173,52 +182,68 @@ impl CertificateDecoder {
         use x509_parser::prelude::FromDer;
         match x509_parser::certificate::X509Certificate::from_der(der) {
             Ok((_, cert)) => {
-                info.push_str("\n--- X.509 Certificate ---\n");
-                info.push_str(&format!("Subject: {}\n", format_name(cert.subject())));
-                info.push_str(&format!("Issuer:  {}\n", format_name(cert.issuer())));
-                info.push_str(&format!("Serial:  {}\n", cert.raw_serial_as_string()));
+                info.push_str(&tr!("cert_x509_header"));
+                info.push('\n');
+                info.push_str(&tr!("cert_subject", format_name(cert.subject())));
+                info.push('\n');
+                info.push_str(&tr!("cert_issuer", format_name(cert.issuer())));
+                info.push('\n');
+                info.push_str(&tr!("cert_serial", cert.raw_serial_as_string()));
+                info.push('\n');
 
                 let vf = cert.validity().not_before.to_rfc2822().unwrap_or_default();
                 let vt = cert.validity().not_after.to_rfc2822().unwrap_or_default();
-                info.push_str(&format!("Valid:   {} - {}\n", vf, vt));
+                info.push_str(&tr!("cert_valid", vf, vt));
+                info.push('\n');
 
                 if let Some(dur) = cert.validity().time_to_expiration() {
                     let days = dur.whole_seconds() / 86400;
-                    info.push_str(&format!("Status:  Valid ({} days remaining)\n", days));
+                    info.push_str(&tr!("cert_status_valid", days));
                 } else {
-                    info.push_str("Status:  EXPIRED\n");
+                    info.push_str(&tr!("cert_status_expired"));
                 }
+                info.push('\n');
 
-                info.push_str(&format!("Version: v{}\n", cert.version().0 + 1));
+                info.push_str(&tr!("cert_version", cert.version().0 + 1));
+                info.push('\n');
 
                 match cert.public_key().parsed() {
                     Ok(pk) => {
                         use x509_parser::public_key::PublicKey;
                         let alg = match pk {
-                            PublicKey::RSA(k) => format!("RSA ({} bits)", k.key_size() * 8),
-                            PublicKey::EC(_) => "EC".into(),
-                            PublicKey::DSA(_) => "DSA".into(),
+                            PublicKey::RSA(k) => tr!("pktype_rsa", k.key_size() * 8),
+                            PublicKey::EC(_) => tr!("pktype_ec"),
+                            PublicKey::DSA(_) => tr!("pktype_dsa"),
                             PublicKey::GostR3410(_) => "GOST R 34.10-94".into(),
                             PublicKey::GostR3410_2012(_) => "GOST R 34.10-2012".into(),
-                            PublicKey::Unknown(_) => "Unknown".into(),
+                            PublicKey::Unknown(_) => tr!("pktype_unknown"),
                         };
-                        info.push_str(&format!("PubKey:  {}\n", alg));
+                        info.push_str(&tr!("cert_pubkey", alg));
+                        info.push('\n');
                     }
-                    Err(e) => info.push_str(&format!("PubKey:  parse error: {}\n", e)),
+                    Err(e) => {
+                        info.push_str(&tr!("cert_pubkey_error", e));
+                        info.push('\n');
+                    }
                 }
 
-                info.push_str(&format!("SigAlg:  {}\n", oid_label(&cert.signature_algorithm.algorithm)));
+                info.push_str(&tr!("cert_sigalg", oid_label(&cert.signature_algorithm.algorithm)));
+                info.push('\n');
 
                 let exts = cert.extensions();
                 if !exts.is_empty() {
-                    info.push_str(&format!("\nExtensions ({}):\n", exts.len()));
+                    info.push_str(&tr!("cert_extensions", exts.len()));
+                    info.push('\n');
                     for ext in exts {
-                        let crit = if ext.critical { " [CRITICAL]" } else { "" };
+                        let crit = if ext.critical { tr!("cert_critical") } else { String::new() };
                         info.push_str(&format!("  - {}{}\n", oid_label(&ext.oid), crit));
                     }
                 }
             }
-            Err(e) => info.push_str(&format!("\nX.509 parse error: {}\n", e)),
+            Err(e) => {
+                info.push_str(&tr!("cert_parse_error", e));
+                info.push('\n');
+            }
         }
     }
 }
@@ -258,31 +283,31 @@ fn oid_short(oid: &x509_parser::oid_registry::Oid) -> &'static str {
 fn oid_label(oid: &x509_parser::oid_registry::Oid) -> String {
     let s = oid.to_id_string();
     match s.as_str() {
-        "2.5.4.3" => "CN (Common Name)".into(),
-        "2.5.4.6" => "C (Country)".into(),
-        "2.5.4.7" => "L (Locality)".into(),
-        "2.5.4.8" => "ST (State)".into(),
-        "2.5.4.10" => "O (Organization)".into(),
-        "2.5.4.11" => "OU (Org Unit)".into(),
-        "1.2.840.113549.1.1.1" => "RSA Encryption".into(),
-        "1.2.840.113549.1.1.5" => "SHA-1 with RSA".into(),
-        "1.2.840.113549.1.1.11" => "SHA-256 with RSA".into(),
-        "1.2.840.113549.1.1.12" => "SHA-384 with RSA".into(),
-        "1.2.840.113549.1.1.13" => "SHA-512 with RSA".into(),
-        "1.2.840.113549.1.1.10" => "RSASSA-PSS".into(),
-        "1.2.840.10045.2.1" => "EC Public Key".into(),
-        "1.2.840.10045.4.3.2" => "SHA-256 with ECDSA".into(),
-        "1.2.840.10045.4.3.3" => "SHA-384 with ECDSA".into(),
-        "1.2.840.10045.4.3.4" => "SHA-512 with ECDSA".into(),
-        "2.5.29.14" => "Subject Key Identifier".into(),
-        "2.5.29.15" => "Key Usage".into(),
-        "2.5.29.17" => "Subject Alt Name".into(),
-        "2.5.29.19" => "Basic Constraints".into(),
-        "2.5.29.31" => "CRL Distribution Points".into(),
-        "2.5.29.32" => "Certificate Policies".into(),
-        "2.5.29.35" => "Authority Key Identifier".into(),
-        "2.5.29.37" => "Extended Key Usage".into(),
-        "1.3.6.1.5.5.7.1.1" => "Authority Info Access".into(),
+        "2.5.4.3" => tr!("oid_cn"),
+        "2.5.4.6" => tr!("oid_c"),
+        "2.5.4.7" => tr!("oid_l"),
+        "2.5.4.8" => tr!("oid_st"),
+        "2.5.4.10" => tr!("oid_o"),
+        "2.5.4.11" => tr!("oid_ou"),
+        "1.2.840.113549.1.1.1" => tr!("oid_rsa_enc"),
+        "1.2.840.113549.1.1.5" => tr!("oid_sha1_rsa"),
+        "1.2.840.113549.1.1.11" => tr!("oid_sha256_rsa"),
+        "1.2.840.113549.1.1.12" => tr!("oid_sha384_rsa"),
+        "1.2.840.113549.1.1.13" => tr!("oid_sha512_rsa"),
+        "1.2.840.113549.1.1.10" => tr!("oid_rsassa_pss"),
+        "1.2.840.10045.2.1" => tr!("oid_ec_pubkey"),
+        "1.2.840.10045.4.3.2" => tr!("oid_sha256_ecdsa"),
+        "1.2.840.10045.4.3.3" => tr!("oid_sha384_ecdsa"),
+        "1.2.840.10045.4.3.4" => tr!("oid_sha512_ecdsa"),
+        "2.5.29.14" => tr!("oid_ski"),
+        "2.5.29.15" => tr!("oid_ku"),
+        "2.5.29.17" => tr!("oid_san"),
+        "2.5.29.19" => tr!("oid_bc"),
+        "2.5.29.31" => tr!("oid_crl_dp"),
+        "2.5.29.32" => tr!("oid_cp"),
+        "2.5.29.35" => tr!("oid_aki"),
+        "2.5.29.37" => tr!("oid_eku"),
+        "1.3.6.1.5.5.7.1.1" => tr!("oid_aia"),
         other => other.into(),
     }
 }

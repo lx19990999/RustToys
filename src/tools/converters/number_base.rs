@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async};
 
 
@@ -35,13 +36,13 @@ enum PendingAction {
 }
 
 impl Tool for NumberBase {
-    fn name(&self) -> &str { "Number Base Converter" }
-    fn description(&self) -> &str { "Convert numbers between binary, octal, decimal, and hexadecimal" }
+    fn name(&self) -> String { tr!("nb_name") }
+    fn description(&self) -> String { tr!("nb_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&tr!("err_error_reading")) {
                 if let Some(ref field_name) = self.pending_field.take() {
                     let val = text.trim().to_string();
                     match field_name.as_str() {
@@ -61,18 +62,18 @@ impl Tool for NumberBase {
         // Decimal
         let mut dec_changed = false;
         ui.horizontal(|ui| {
-            ui.label("Decimal:");
+            ui.label(tr!("nb_decimal"));
             if ui.text_edit_singleline(&mut self.decimal).changed() { dec_changed = true; }
             Self::buttons(ui, &self.decimal, "decimal", &mut pending, &mut error_msg);
         });
         if let Ok(n) = self.decimal.trim().parse::<i64>() {
-            ui.horizontal(|ui| { ui.label("  Formatted:"); ui.monospace(format_number(n)); });
+            ui.horizontal(|ui| { ui.label(tr!("nb_formatted")); ui.monospace(format_number(n)); });
         }
 
         // Binary
         let mut bin_changed = false;
         ui.horizontal(|ui| {
-            ui.label("Binary:");
+            ui.label(tr!("nb_binary"));
             if ui.text_edit_singleline(&mut self.binary).changed() { bin_changed = true; }
             Self::buttons(ui, &self.binary, "binary", &mut pending, &mut error_msg);
         });
@@ -80,7 +81,7 @@ impl Tool for NumberBase {
         // Octal
         let mut oct_changed = false;
         ui.horizontal(|ui| {
-            ui.label("Octal:");
+            ui.label(tr!("nb_octal"));
             if ui.text_edit_singleline(&mut self.octal).changed() { oct_changed = true; }
             Self::buttons(ui, &self.octal, "octal", &mut pending, &mut error_msg);
         });
@@ -88,7 +89,7 @@ impl Tool for NumberBase {
         // Hex
         let mut hex_changed = false;
         ui.horizontal(|ui| {
-            ui.label("Hex:");
+            ui.label(tr!("nb_hex"));
             if ui.text_edit_singleline(&mut self.hex).changed() { hex_changed = true; }
             Self::buttons(ui, &self.hex, "hex", &mut pending, &mut error_msg);
         });
@@ -108,12 +109,12 @@ impl Tool for NumberBase {
                         *self.field_mut(field) = text.trim().to_string();
                         self.update_from(field);
                     }
-                    Err(e) => self.error = format!("Clipboard error: {}", e),
+                    Err(e) => self.error = tr!("err_clipboard", e),
                 }
             }
             Some(PendingAction::Open(field)) => {
                 self.pending_field = Some(field.to_string());
-                open_file_async(&mut self.pending_file, "Open file", "Text", &["txt"]);
+                open_file_async(&mut self.pending_file, &tr!("nb_open"), &tr!("save_filter_text"), &["txt"]);
             }
             Some(PendingAction::Clear) => {
                 self.decimal.clear();
@@ -140,21 +141,21 @@ impl NumberBase {
         pending: &mut Option<PendingAction>,
         error_msg: &mut String,
     ) {
-        if ui.small_button("Copy").clicked() && !value.is_empty() {
+        if ui.small_button(tr!("btn_copy")).clicked() && !value.is_empty() {
             ui.ctx().copy_text(value.to_string());
         }
-        if ui.small_button("Paste").clicked() {
+        if ui.small_button(tr!("btn_paste")).clicked() {
             *pending = Some(PendingAction::Paste(field));
         }
-        if ui.small_button("Open").clicked() {
+        if ui.small_button(tr!("nb_open")).clicked() {
             *pending = Some(PendingAction::Open(field));
         }
-        if ui.small_button("Save").clicked() && !value.is_empty() {
-            if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], &format!("{}.txt", field)) {
+        if ui.small_button(tr!("nb_save")).clicked() && !value.is_empty() {
+            if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("nb_save_as"), &tr!("save_filter_text"), &["txt"], &tr!("nb_save_default", field)) {
                 let _ = std::fs::write(path, value);
             }
         }
-        if ui.small_button("Clear").clicked() {
+        if ui.small_button(tr!("btn_clear")).clicked() {
             *pending = Some(PendingAction::Clear);
         }
         let _ = error_msg;

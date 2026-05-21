@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async};
 use serde_json::Value;
 use serde::Serialize;
@@ -29,21 +30,23 @@ impl Default for JsonYaml {
 
 
 impl Tool for JsonYaml {
-    fn name(&self) -> &str { "JSON <> YAML Converter" }
-    fn description(&self) -> &str { "Convert between JSON and YAML formats" }
+    fn name(&self) -> String { tr!("jy_name") }
+    fn description(&self) -> String { tr!("jy_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
         }
+        let label_jy_json_to_yaml = tr!("jy_json_to_yaml");
+        let label_jy_yaml_to_json = tr!("jy_yaml_to_json");
         ui.horizontal(|ui| {
-            ui.radio_value(&mut self.to_yaml, true, "JSON → YAML");
-            ui.radio_value(&mut self.to_yaml, false, "YAML → JSON");
+            ui.radio_value(&mut self.to_yaml, true, &label_jy_json_to_yaml);
+            ui.radio_value(&mut self.to_yaml, false, &label_jy_yaml_to_json);
             ui.separator();
-            ui.label("Indent:");
+            ui.label(tr!("label_indent"));
             ui.add(egui::DragValue::new(&mut self.indent).range(0..=8).speed(1));
         });
         ui.add_space(4.0);
@@ -55,19 +58,19 @@ impl Tool for JsonYaml {
         ui.columns(2, |cols| {
             // Left: Input panel
             cols[0].vertical(|ui| {
-                let input_label = if self.to_yaml { "Input JSON:" } else { "Input YAML:" };
+                let input_label = if self.to_yaml { tr!("jy_input_json") } else { tr!("jy_input_yaml") };
 
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
-                        open_file_async(&mut self.pending_file, "Open file", "Data", &["json", "yaml", "yml"]);
+                    if ui.button(tr!("btn_open_file")).clicked() {
+                        open_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["json", "yaml", "yml"]);
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
@@ -95,15 +98,15 @@ impl Tool for JsonYaml {
                     ui.add_space(4.0);
                 }
 
-                let output_label = if self.to_yaml { "Output YAML:" } else { "Output JSON:" };
+                let output_label = if self.to_yaml { tr!("jy_output_yaml") } else { tr!("jy_output_json") };
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
                         let ext = if self.to_yaml { "yaml" } else { "json" };
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", &ext.to_uppercase(), &[ext], &format!("output.{}", ext)) {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &ext.to_uppercase(), &[ext], &format!("output.{}", ext)) {
                             let _ = std::fs::write(path, &self.output);
                         }
                     }
@@ -146,10 +149,10 @@ impl JsonYaml {
                 Ok(val) => {
                     match serde_yaml::to_string(&val) {
                         Ok(yaml) => self.output = yaml,
-                        Err(e) => self.error = format!("YAML error: {}", e),
+                        Err(e) => self.error = tr!("jy_yaml_error", e),
                     }
                 }
-                Err(e) => self.error = format!("JSON parse error: {}", e),
+                Err(e) => self.error = tr!("jy_json_parse_error", e),
             }
         } else {
             match serde_yaml::from_str::<Value>(&self.input) {
@@ -165,10 +168,10 @@ impl JsonYaml {
                     };
                     match json {
                         Ok(j) => self.output = j,
-                        Err(e) => self.error = format!("JSON error: {}", e),
+                        Err(e) => self.error = tr!("jy_json_error", e),
                     }
                 }
-                Err(e) => self.error = format!("YAML parse error: {}", e),
+                Err(e) => self.error = tr!("jy_yaml_parse_error", e),
             }
         }
     }

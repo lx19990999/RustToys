@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use sha2::{Sha256, Sha384, Sha512, Digest};
 use sha1::Sha1;
 use md5::Md5;
@@ -56,8 +57,8 @@ impl Default for HashGenerator {
 }
 
 impl Tool for HashGenerator {
-    fn name(&self) -> &str { "Hash / Checksum Generator" }
-    fn description(&self) -> &str { "Calculate hash from text or binary data" }
+    fn name(&self) -> String { tr!("hash_name") }
+    fn description(&self) -> String { tr!("hash_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Generators }
 
     fn is_busy(&self) -> bool { self.computing }
@@ -92,7 +93,8 @@ impl Tool for HashGenerator {
             // Left: Input
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() && !self.computing {
+                    let lbl_paste = tr!("btn_paste");
+                    if ui.button(lbl_paste).clicked() && !self.computing {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => {
                                 self.input = text;
@@ -100,14 +102,17 @@ impl Tool for HashGenerator {
                                 self.file_path.clear();
                             }
                             Err(e) => {
-                                self.input = format!("Clipboard error: {}", e);
+                                self.input = tr!("err_clipboard", e);
                             }
                         }
                     }
-                    if ui.button("Open File...").clicked() && !self.computing {
+                    let lbl_open = tr!("btn_open_file");
+                    if ui.button(lbl_open).clicked() && !self.computing {
+                        let title = tr!("save_as_title");
+                        let filter_all = tr!("save_filter_all");
                         if let Some(path) = rfd::FileDialog::new()
-                            .set_title("Open file")
-                            .add_filter("All files", &["*"])
+                            .set_title(&title)
+                            .add_filter(&filter_all, &["*"])
                             .pick_file()
                         {
                             self.file_path = path.to_string_lossy().to_string();
@@ -116,7 +121,8 @@ impl Tool for HashGenerator {
                             self.start_file_hash(path);
                         }
                     }
-                    if ui.button("Clear").clicked() && !self.computing {
+                    let lbl_clear = tr!("btn_clear");
+                    if ui.button(lbl_clear).clicked() && !self.computing {
                         self.input.clear();
                         self.file_path.clear();
                         self.is_file = false;
@@ -130,13 +136,14 @@ impl Tool for HashGenerator {
                 });
                 ui.add_space(2.0);
 
-                ui.checkbox(&mut self.uppercase, "Uppercase");
+                let lbl_upper = tr!("label_uppercase");
+                ui.checkbox(&mut self.uppercase, &lbl_upper);
                 ui.add_space(2.0);
 
                 if self.is_file {
-                    ui.label(format!("File: {}", self.file_path));
+                    ui.label(tr!("hash_file_label", &self.file_path));
                 } else {
-                    ui.label("Input text:");
+                    ui.label(tr!("hash_input_text"));
 
                     egui::ScrollArea::vertical()
                         .id_salt("hash_input_scroll")
@@ -154,13 +161,13 @@ impl Tool for HashGenerator {
                 // Progress bar
                 if self.computing {
                     ui.add_space(8.0);
-                    ui.label("Computing hashes...");
+                    ui.label(tr!("hash_computing"));
                     ui.add(egui::ProgressBar::new(self.progress).show_percentage());
                     ui.ctx().request_repaint();
                 }
 
                 ui.add_space(4.0);
-                ui.label("Checksum to verify (paste expected hash):");
+                ui.label(tr!("hash_verify_label"));
 
                 egui::ScrollArea::horizontal()
                     .id_salt("hash_verify_scroll")
@@ -185,15 +192,20 @@ impl Tool for HashGenerator {
                 // Copy All
                 if !self.md5.is_empty() && !self.computing {
                     ui.add_space(8.0);
-                    if ui.button("Copy All").clicked() {
+                    let lbl_copy_all = tr!("btn_copy_all");
+                    if ui.button(lbl_copy_all).clicked() {
                         let all = format!(
                             "MD5:     {}\nSHA-1:   {}\nSHA-256: {}\nSHA-384: {}\nSHA-512: {}",
                             self.md5, self.sha1, self.sha256, self.sha384, self.sha512
                         );
                         ui.ctx().copy_text(all);
                     }
-                    if ui.button("Save As...").clicked() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save hashes as", "Text", &["txt"], "hashes.txt") {
+                    let lbl_save_as = tr!("btn_save_as");
+                    if ui.button(lbl_save_as).clicked() {
+                        let title = tr!("hash_save_single");
+                        let filter_text = tr!("save_filter_text");
+                        let default_name = tr!("hash_save_default");
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_text, &["txt"], &default_name) {
                             let all = format!(
                                 "MD5:     {}\nSHA-1:   {}\nSHA-256: {}\nSHA-384: {}\nSHA-512: {}",
                                 self.md5, self.sha1, self.sha256, self.sha384, self.sha512
@@ -334,18 +346,24 @@ impl HashGenerator {
                     .interactive(false),
             );
 
-            if !value.is_empty() && ui.button("Copy").clicked() {
-                ui.ctx().copy_text(value.to_string());
-            }
-            if !value.is_empty() && ui.button("Save...").clicked() {
-                if let Some(path) = crate::tools::async_utils::save_file_dialog("Save hash as", "Text", &["txt"], &format!("{}.txt", label.to_lowercase().replace('-', ""))) {
-                    let _ = std::fs::write(path, value);
+            if !value.is_empty() {
+                let lbl_copy = tr!("btn_copy");
+                if ui.button(lbl_copy).clicked() {
+                    ui.ctx().copy_text(value.to_string());
+                }
+                let lbl_save = tr!("btn_save_as");
+                if ui.button(lbl_save).clicked() {
+                    let title = tr!("hash_save_single");
+                    let filter_text = tr!("save_filter_text");
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_text, &["txt"], &format!("{}.txt", label.to_lowercase().replace('-', ""))) {
+                        let _ = std::fs::write(path, value);
+                    }
                 }
             }
         });
 
         if matches {
-            ui.colored_label(egui::Color32::from_rgb(0, 180, 0), &format!("  {} matches!", label));
+            ui.colored_label(egui::Color32::from_rgb(0, 180, 0), tr!("hash_matches", label));
         }
         ui.add_space(2.0);
     }

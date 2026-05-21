@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 
@@ -42,23 +43,23 @@ impl RegexTester {
                     let full_match = cap.get(0).map(|m| m.as_str()).unwrap_or("");
                     let start = cap.get(0).map(|m| m.start()).unwrap_or(0);
                     let end = cap.get(0).map(|m| m.end()).unwrap_or(0);
-                    let mut line = format!("Match {}: '{}' (pos {}-{})", i + 1, full_match, start, end);
+                    let mut line = tr!("rx_match_n", i + 1, full_match, start, end);
                     for (j, group) in cap.iter().enumerate().skip(1) {
                         if let Some(m) = group {
-                            line.push_str(&format!("\n  Group {}: '{}'", j, m.as_str()));
+                            line.push_str(&tr!("rx_group_n", j, m.as_str()));
                         }
                     }
                     results.push(line);
                 }
 
                 if results.is_empty() {
-                    self.matches = "No match found".to_string();
+                    self.matches = tr!("rx_no_match");
                 } else {
                     let count = re.find_iter(&self.test_string).count();
-                    self.matches = format!("Total matches: {}\n\n{}", count, results.join("\n\n"));
+                    self.matches = tr!("rx_total_matches", count, results.join("\n\n"));
                 }
             }
-            Err(e) => self.error = format!("Invalid regex: {}", e),
+            Err(e) => self.error = tr!("rx_invalid_regex", e),
         }
     }
 
@@ -72,13 +73,14 @@ impl RegexTester {
 }
 
 impl Tool for RegexTester {
-    fn name(&self) -> &str { "Regular Expression Tester" }
-    fn description(&self) -> &str { "Test regular expressions and see matches" }
+    fn name(&self) -> String { tr!("rx_name") }
+    fn description(&self) -> String { tr!("rx_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Testers }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let err_reading = tr!("err_error_reading");
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&err_reading) {
                 self.test_string = text;
                 self.error.clear();
             }
@@ -106,20 +108,26 @@ impl Tool for RegexTester {
             total.min,
             egui::vec2(half_w, cols_h),
         );
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_text = tr!("rx_text_label");
         ui.scope_builder(egui::UiBuilder::new().max_rect(left_rect), |ui| {
-            ui.label(egui::RichText::new("Text").strong());
+            ui.label(egui::RichText::new(&lbl_text).strong());
             ui.add_space(space);
             ui.horizontal(|ui| {
-                if ui.button("Paste").clicked() {
+                if ui.button(&lbl_paste).clicked() {
                     match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                         Ok(text) => { self.test_string = text; self.error.clear(); }
-                        Err(e) => self.error = format!("Clipboard error: {}", e),
+                        Err(e) => self.error = tr!("err_clipboard", e),
                     }
                 }
-                if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open text file", "Text", &["txt"]);
+                if ui.button(&lbl_open).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("btn_open_file"), &tr!("rx_text_label"), &["txt"]);
                 }
-                if ui.button("Clear").clicked() {
+                if ui.button(&lbl_clear).clicked() {
                     self.test_string.clear();
                     self.matches.clear();
                     self.error.clear();
@@ -139,15 +147,16 @@ impl Tool for RegexTester {
             total.min + egui::vec2(half_w + pad, 0.0),
             egui::vec2(half_w, cols_h),
         );
+        let lbl_match_info = tr!("rx_match_info");
         ui.scope_builder(egui::UiBuilder::new().max_rect(right_rect), |ui| {
-            ui.label(egui::RichText::new("Match information").strong());
+            ui.label(egui::RichText::new(&lbl_match_info).strong());
             ui.add_space(space);
             ui.horizontal(|ui| {
-                if ui.button("Copy").clicked() && !self.matches.is_empty() {
+                if ui.button(&lbl_copy).clicked() && !self.matches.is_empty() {
                     ui.ctx().copy_text(self.matches.clone());
                 }
-                if ui.button("Save As...").clicked() && !self.matches.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "regex_matches.txt") {
+                if ui.button(&lbl_save_as).clicked() && !self.matches.is_empty() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("rx_save_default")) {
                         let _ = std::fs::write(path, &self.matches);
                     }
                 }
@@ -167,13 +176,15 @@ impl Tool for RegexTester {
             egui::pos2(total.min.x, query_y),
             egui::vec2(w, query_h),
         );
+        let lbl_regex = tr!("rx_regex_label");
+        let lbl_hint = tr!("rx_hint");
         ui.scope_builder(egui::UiBuilder::new().max_rect(query_rect), |ui| {
             ui.horizontal(|ui| {
-                ui.label("Regular expression:");
+                ui.label(&lbl_regex);
                 ui.add(
                     egui::TextEdit::singleline(&mut self.pattern)
                         .desired_width(ui.available_width())
-                        .hint_text(r"Enter regex, e.g. \d+"),
+                        .hint_text(&lbl_hint),
                 );
             });
         });
@@ -198,9 +209,18 @@ impl Tool for RegexTester {
             egui::pos2(total.min.x, cheat_y),
             egui::vec2(w, cheat_h),
         );
+        let lbl_cheatsheet = tr!("rx_cheatsheet");
+        let lbl_char_classes = tr!("rx_char_classes");
+        let lbl_anchors = tr!("rx_anchors");
+        let lbl_escaped = tr!("rx_escaped_chars");
+        let lbl_groups = tr!("rx_groups_refs");
+        let lbl_lookaround = tr!("rx_lookaround");
+        let lbl_quantifiers = tr!("rx_quantifiers_alt");
+        let lbl_special = tr!("rx_special");
+        let lbl_substitution = tr!("rx_substitution");
         ui.scope_builder(egui::UiBuilder::new().max_rect(cheat_rect), |ui| {
             ui.group(|ui| {
-                ui.label(egui::RichText::new("Cheat sheet").strong());
+                ui.label(egui::RichText::new(&lbl_cheatsheet).strong());
                 ui.separator();
 
                 egui::ScrollArea::vertical()
@@ -208,7 +228,7 @@ impl Tool for RegexTester {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         // Character classes
-                        ui.label(egui::RichText::new("Character classes").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_char_classes).underline().strong());
                         ui.add_space(2.0);
                         render_cheatsheet(ui, "rx_chars", &[
                             (".", "Any character except newline"),
@@ -235,7 +255,7 @@ impl Tool for RegexTester {
                         ], &mut self.pattern);
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Anchors").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_anchors).underline().strong());
                         ui.add_space(2.0);
                         render_cheatsheet(ui, "rx_anchors", &[
                             ("\\A", "Beginning of string"),
@@ -249,7 +269,7 @@ impl Tool for RegexTester {
                         ], &mut self.pattern);
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Escaped characters").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_escaped).underline().strong());
                         ui.add_space(2.0);
                         render_cheatsheet(ui, "rx_escaped", &[
                             ("\\+", "Reserved characters"),
@@ -268,7 +288,7 @@ impl Tool for RegexTester {
                         ], &mut self.pattern);
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Groups and References").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_groups).underline().strong());
                         ui.add_space(2.0);
                         render_cheatsheet(ui, "rx_groups", &[
                             ("(abc)", "Capturing group"),
@@ -280,7 +300,7 @@ impl Tool for RegexTester {
                         ], &mut self.pattern);
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Lookaround").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_lookaround).underline().strong());
                         ui.add_space(2.0);
                         render_cheatsheet(ui, "rx_lookaround", &[
                             ("(?=abc)", "Positive lookahead"),
@@ -290,7 +310,7 @@ impl Tool for RegexTester {
                         ], &mut self.pattern);
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Quantifiers and Alternation").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_quantifiers).underline().strong());
                         ui.add_space(2.0);
                         render_cheatsheet(ui, "rx_quantifiers", &[
                             ("+", "Plus"),
@@ -303,7 +323,7 @@ impl Tool for RegexTester {
                         ], &mut self.pattern);
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Special").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_special).underline().strong());
                         ui.add_space(2.0);
                         render_cheatsheet(ui, "rx_special", &[
                             ("(?#foo)", "Comment"),
@@ -314,7 +334,7 @@ impl Tool for RegexTester {
                         ], &mut self.pattern);
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Substitution").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_substitution).underline().strong());
                         ui.add_space(2.0);
                         render_cheatsheet(ui, "rx_substitution", &[
                             ("$0", "Match"),

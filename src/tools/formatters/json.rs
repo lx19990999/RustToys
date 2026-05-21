@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 use serde::Serialize;
@@ -29,13 +30,14 @@ impl Default for JsonFormatter {
 }
 
 impl Tool for JsonFormatter {
-    fn name(&self) -> &str { "JSON Formatter" }
-    fn description(&self) -> &str { "Format, minify, and validate JSON" }
+    fn name(&self) -> String { tr!("jf_name") }
+    fn description(&self) -> String { tr!("jf_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Formatters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            let err_prefix = tr!("err_error_reading");
+            if !text.starts_with(&err_prefix) {
                 self.input = text;
             }
         }
@@ -48,16 +50,16 @@ impl Tool for JsonFormatter {
             // Left: Input
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open JSON file", "JSON", &["json"]);
+                    if ui.button(tr!("btn_open_file")).clicked() {
+                        open_file_async(&mut self.pending_file, &tr!("jf_input_label"), "JSON", &["json"]);
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
@@ -66,13 +68,15 @@ impl Tool for JsonFormatter {
                 ui.add_space(2.0);
 
                 ui.horizontal(|ui| {
-                    ui.label("Indent:");
+                    ui.label(tr!("label_indent"));
                     ui.add(egui::DragValue::new(&mut self.indent).range(0..=8).speed(1));
-                    ui.checkbox(&mut self.minify, "Minify");
-                    ui.checkbox(&mut self.sort_keys, "Sort keys");
+                    let label_minify = tr!("label_minify");
+                    ui.checkbox(&mut self.minify, &label_minify);
+                    let label_sort_keys = tr!("label_sort_keys");
+                    ui.checkbox(&mut self.sort_keys, &label_sort_keys);
                 });
                 ui.add_space(2.0);
-                ui.label("Input JSON:");
+                ui.label(tr!("jf_input_label"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("json_input_scroll")
@@ -94,17 +98,17 @@ impl Tool for JsonFormatter {
                 }
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "JSON", &["json"], "formatted.json") {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "JSON", &["json"], "formatted.json") {
                             let _ = std::fs::write(path, &self.output);
                         }
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("Output:");
+                ui.label(tr!("label_output"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("json_output_scroll")
@@ -155,7 +159,7 @@ impl JsonFormatter {
             }
             Err(e) => {
                 self.output.clear();
-                self.error = format!("JSON parse error: {}", e);
+                self.error = tr!("jy_json_parse_error", e);
             }
         }
     }

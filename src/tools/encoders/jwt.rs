@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async};
 use serde_json::Value;
 use base64::Engine;
@@ -45,19 +46,21 @@ impl Default for JwtDecoder {
 
 
 impl Tool for JwtDecoder {
-    fn name(&self) -> &str { "JWT Encoder / Decoder" }
-    fn description(&self) -> &str { "Decode and inspect JWT tokens, or encode payloads" }
+    fn name(&self) -> String { tr!("jwt_name") }
+    fn description(&self) -> String { tr!("jwt_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&tr!("err_error_reading")) {
                 self.token = text;
             }
         }
+        let label_decode = tr!("label_decode");
+        let label_encode = tr!("label_encode");
         ui.horizontal(|ui| {
-            ui.radio_value(&mut self.encode_mode, false, "Decode");
-            ui.radio_value(&mut self.encode_mode, true, "Encode");
+            ui.radio_value(&mut self.encode_mode, false, &label_decode);
+            ui.radio_value(&mut self.encode_mode, true, &label_encode);
         });
         ui.add_space(4.0);
 
@@ -76,16 +79,16 @@ impl JwtDecoder {
 
         // Input area
         ui.horizontal(|ui| {
-            if ui.button("Paste").clicked() {
+            if ui.button(tr!("btn_paste")).clicked() {
                 match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                     Ok(text) => self.token = text,
-                    Err(e) => self.error = format!("Clipboard error: {}", e),
+                    Err(e) => self.error = tr!("err_clipboard", e),
                 }
             }
-            if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open JWT token file", "Text", &["txt"]);
+            if ui.button(tr!("btn_open_file")).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("jwt_save_token"), &tr!("save_filter_text"), &["txt"]);
             }
-                    if ui.button("Clear").clicked() {
+            if ui.button(tr!("btn_clear")).clicked() {
                 self.token.clear();
                 self.header.clear();
                 self.payload.clear();
@@ -95,7 +98,7 @@ impl JwtDecoder {
             }
         });
         ui.add_space(2.0);
-        ui.label("JWT Token:");
+        ui.label(tr!("jwt_token_label"));
 
         egui::ScrollArea::vertical()
             .id_salt("jwt_token_scroll")
@@ -112,16 +115,16 @@ impl JwtDecoder {
         ui.add_space(4.0);
 
         // Verification settings
-        ui.collapsing("Verification Settings", |ui| {
+        ui.collapsing(tr!("jwt_verification"), |ui| {
             ui.horizontal(|ui| {
-                ui.label("Secret key:");
+                ui.label(tr!("jwt_secret_label"));
                 ui.add(
                     egui::TextEdit::singleline(&mut self.verify_secret)
                         .desired_width(f32::INFINITY)
                         .password(true),
                 );
             });
-            ui.label("Leave empty to skip signature verification (decode only).");
+            ui.label(tr!("jwt_skip_verify_hint"));
             if !self.verify_result.is_empty() {
                 if self.verify_valid {
                     ui.colored_label(egui::Color32::from_rgb(0, 180, 0), &self.verify_result);
@@ -144,12 +147,12 @@ impl JwtDecoder {
             // Left: Header
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    ui.label("Header:");
-                    if !self.header.is_empty() && ui.small_button("Copy").clicked() {
+                    ui.label(tr!("jwt_header_label"));
+                    if !self.header.is_empty() && ui.small_button(tr!("btn_copy")).clicked() {
                         ui.ctx().copy_text(self.header.clone());
                     }
-                    if !self.header.is_empty() && ui.small_button("Save As...").clicked() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save header as", "JSON", &["json"], "header.json") {
+                    if !self.header.is_empty() && ui.small_button(tr!("btn_save_as")).clicked() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("jwt_save_header"), "JSON", &["json"], &tr!("jwt_header_json")) {
                             let _ = std::fs::write(path, &self.header);
                         }
                     }
@@ -170,12 +173,12 @@ impl JwtDecoder {
             // Right: Payload
             cols[1].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    ui.label("Payload:");
-                    if !self.payload.is_empty() && ui.small_button("Copy").clicked() {
+                    ui.label(tr!("jwt_payload_label"));
+                    if !self.payload.is_empty() && ui.small_button(tr!("btn_copy")).clicked() {
                         ui.ctx().copy_text(self.payload.clone());
                     }
-                    if !self.payload.is_empty() && ui.small_button("Save As...").clicked() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save payload as", "JSON", &["json"], "payload.json") {
+                    if !self.payload.is_empty() && ui.small_button(tr!("btn_save_as")).clicked() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("jwt_save_payload"), "JSON", &["json"], &tr!("jwt_payload_json")) {
                             let _ = std::fs::write(path, &self.payload);
                         }
                     }
@@ -208,23 +211,23 @@ impl JwtDecoder {
             // Left: Input
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.encode_input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open JWT token file", "Text", &["txt"]);
+                    if ui.button(tr!("btn_open_file")).clicked() {
+                        open_file_async(&mut self.pending_file, &tr!("jwt_save_token"), &tr!("save_filter_text"), &["txt"]);
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.encode_input.clear();
                         self.encode_output.clear();
                         self.error.clear();
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("Payload (JSON):");
+                ui.label(tr!("jwt_encode_payload"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("jwt_encode_input_scroll")
@@ -238,9 +241,9 @@ impl JwtDecoder {
                     });
 
                 ui.add_space(4.0);
-                ui.label("Algorithm: HS256 (HMAC-SHA256)");
+                ui.label(tr!("jwt_alg_label"));
                 ui.horizontal(|ui| {
-                    ui.label("Secret key:");
+                    ui.label(tr!("jwt_secret_label"));
                     ui.add(
                         egui::TextEdit::singleline(&mut self.encode_secret)
                             .desired_width(f32::INFINITY)
@@ -257,17 +260,17 @@ impl JwtDecoder {
                 }
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.encode_output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.encode_output.is_empty() {
                         ui.ctx().copy_text(self.encode_output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.encode_output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "JWT", &["jwt"], "token.jwt") {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.encode_output.is_empty() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "JWT", &["jwt"], &tr!("jwt_save_token")) {
                             let _ = std::fs::write(path, &self.encode_output);
                         }
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("Encoded JWT:");
+                ui.label(tr!("jwt_encoded_label"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("jwt_encode_output_scroll")
@@ -302,7 +305,7 @@ impl JwtDecoder {
 
         let parts: Vec<String> = trimmed.split('.').map(String::from).collect();
         if parts.len() < 2 {
-            self.error = "Invalid JWT: must have at least header.payload".to_string();
+            self.error = tr!("jwt_invalid");
             return;
         }
 
@@ -310,9 +313,9 @@ impl JwtDecoder {
         match base64_decode_url_safe(&parts[0]) {
             Ok(bytes) => match serde_json::from_slice::<Value>(&bytes) {
                 Ok(val) => self.header = serde_json::to_string_pretty(&val).unwrap(),
-                Err(e) => self.error = format!("Header parse error: {}", e),
+                Err(e) => self.error = tr!("jwt_header_parse_error", e),
             },
-            Err(e) => self.error = format!("Header decode error: {}", e),
+            Err(e) => self.error = tr!("jwt_header_decode_error", e),
         }
 
         // Decode payload
@@ -321,13 +324,13 @@ impl JwtDecoder {
                 Ok(val) => self.payload = serde_json::to_string_pretty(&val).unwrap(),
                 Err(e) => {
                     if self.error.is_empty() {
-                        self.error = format!("Payload parse error: {}", e);
+                        self.error = tr!("jwt_payload_parse_error", e);
                     }
                 }
             },
             Err(e) => {
                 if self.error.is_empty() {
-                    self.error = format!("Payload decode error: {}", e);
+                    self.error = tr!("jwt_payload_decode_error", e);
                 }
             }
         }
@@ -335,7 +338,7 @@ impl JwtDecoder {
         // Signature verification
         if !self.verify_secret.is_empty() {
             if parts.len() < 3 {
-                self.verify_result = "No signature part found in token".to_string();
+                self.verify_result = tr!("jwt_no_sig");
                 self.verify_valid = false;
             } else {
                 self.verify_signature(&parts[0], &parts[1], &parts[2]);
@@ -363,25 +366,25 @@ impl JwtDecoder {
                         Some("PS384") => Algorithm::PS384,
                         Some("PS512") => Algorithm::PS512,
                         Some(other) => {
-                            self.verify_result = format!("Unsupported algorithm: {}", other);
+                            self.verify_result = tr!("jwt_unsupported_alg", other);
                             self.verify_valid = false;
                             return;
                         }
                         None => {
-                            self.verify_result = "No 'alg' field in header".to_string();
+                            self.verify_result = tr!("jwt_no_alg");
                             self.verify_valid = false;
                             return;
                         }
                     },
                     Err(_) => {
-                        self.verify_result = "Cannot parse header for algorithm".to_string();
+                        self.verify_result = tr!("jwt_cannot_parse_alg");
                         self.verify_valid = false;
                         return;
                     }
                 }
             }
             Err(_) => {
-                self.verify_result = "Cannot decode header for algorithm".to_string();
+                self.verify_result = tr!("jwt_cannot_decode_alg");
                 self.verify_valid = false;
                 return;
             }
@@ -398,11 +401,11 @@ impl JwtDecoder {
 
         match decode::<Value>(&token, &key, &validation) {
             Ok(_) => {
-                self.verify_result = "Signature is valid".to_string();
+                self.verify_result = tr!("jwt_sig_valid");
                 self.verify_valid = true;
             }
             Err(e) => {
-                self.verify_result = format!("Verification failed: {}", e);
+                self.verify_result = tr!("jwt_verify_failed", e);
                 self.verify_valid = false;
             }
         }
@@ -419,7 +422,7 @@ impl JwtDecoder {
         let payload: Value = match serde_json::from_str(&self.encode_input) {
             Ok(v) => v,
             Err(e) => {
-                self.error = format!("Invalid JSON payload: {}", e);
+                self.error = tr!("jwt_invalid_json", e);
                 return;
             }
         };

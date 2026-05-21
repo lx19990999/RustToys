@@ -1,8 +1,9 @@
 use eframe::egui;
+use crate::tr;
 
 pub trait Tool {
-    fn name(&self) -> &str;
-    fn description(&self) -> &str;
+    fn name(&self) -> String;
+    fn description(&self) -> String;
     fn category(&self) -> ToolCategory;
     fn ui(&mut self, ui: &mut egui::Ui);
     fn is_busy(&self) -> bool { false }
@@ -21,17 +22,18 @@ pub enum ToolCategory {
 }
 
 impl ToolCategory {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Converters => "Converters",
-            Self::Encoders => "Encoders / Decoders",
-            Self::Encryption => "加密/解密",
-            Self::Formatters => "Formatters",
-            Self::Generators => "Generators",
-            Self::Graphic => "Graphic",
-            Self::Testers => "Testers",
-            Self::Text => "Text",
-        }
+    pub fn label(&self) -> String {
+        let key = match self {
+            Self::Converters => "cat_converters",
+            Self::Encoders => "cat_encoders",
+            Self::Encryption => "cat_encryption",
+            Self::Formatters => "cat_formatters",
+            Self::Generators => "cat_generators",
+            Self::Graphic => "cat_graphic",
+            Self::Testers => "cat_testers",
+            Self::Text => "cat_text",
+        };
+        tr!(key)
     }
 
     pub fn all() -> &'static [ToolCategory] {

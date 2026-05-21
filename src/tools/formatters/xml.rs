@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 
@@ -27,13 +28,14 @@ impl Default for XmlFormatter {
 }
 
 impl Tool for XmlFormatter {
-    fn name(&self) -> &str { "XML Formatter" }
-    fn description(&self) -> &str { "Format and validate XML documents" }
+    fn name(&self) -> String { tr!("xf_name") }
+    fn description(&self) -> String { tr!("xf_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Formatters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            let err_prefix = tr!("err_error_reading");
+            if !text.starts_with(&err_prefix) {
                 self.input = text;
             }
         }
@@ -46,16 +48,16 @@ impl Tool for XmlFormatter {
             // Left: Input
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open XML file", "XML", &["xml"]);
+                    if ui.button(tr!("btn_open_file")).clicked() {
+                        open_file_async(&mut self.pending_file, &tr!("xf_open_title"), "XML", &["xml"]);
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
@@ -64,13 +66,15 @@ impl Tool for XmlFormatter {
                 ui.add_space(2.0);
 
                 ui.horizontal(|ui| {
-                    ui.label("Indent:");
+                    ui.label(tr!("label_indent"));
                     ui.add(egui::DragValue::new(&mut self.indent_size).range(1..=8).speed(1));
-                    ui.checkbox(&mut self.minify, "Minify");
-                    ui.checkbox(&mut self.attrs_new_line, "Attributes on new line");
+                    let label_minify = tr!("label_minify");
+                    ui.checkbox(&mut self.minify, &label_minify);
+                    let label_attrs_newline = tr!("xf_attrs_newline");
+                    ui.checkbox(&mut self.attrs_new_line, &label_attrs_newline);
                 });
                 ui.add_space(2.0);
-                ui.label("Input XML:");
+                ui.label(tr!("xf_input_label"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("xml_input_scroll")
@@ -92,17 +96,17 @@ impl Tool for XmlFormatter {
                 }
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "XML", &["xml"], "formatted.xml") {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "XML", &["xml"], &tr!("xf_save_default")) {
                             let _ = std::fs::write(path, &self.output);
                         }
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("Output:");
+                ui.label(tr!("label_output"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("xml_output_scroll")
@@ -142,7 +146,7 @@ impl XmlFormatter {
                 match reader.read_event_into(&mut buf) {
                     Ok(quick_xml::events::Event::Eof) => break,
                     Err(e) => {
-                        self.error = format!("XML error at position {}: {}", reader.buffer_position(), e);
+                        self.error = tr!("xf_error_pos", reader.buffer_position(), e);
                         self.output.clear();
                         return;
                     }

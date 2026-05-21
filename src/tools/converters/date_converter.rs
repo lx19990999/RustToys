@@ -1,6 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
-use chrono::{TimeZone, Utc, Local, NaiveDateTime, Datelike, Timelike};
+use crate::tr;
+use chrono::{TimeZone, Utc, Local, NaiveDateTime, Datelike};
 
 const TIMEZONES: &[(&str, &str)] = &[
     ("UTC", "UTC"),
@@ -37,23 +38,23 @@ impl Default for DateConverter {
 }
 
 impl Tool for DateConverter {
-    fn name(&self) -> &str { "Date Converter" }
-    fn description(&self) -> &str { "Convert dates between formats, timestamps, and timezones" }
+    fn name(&self) -> String { tr!("date_name") }
+    fn description(&self) -> String { tr!("date_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
-        ui.label("Input (timestamp or date string):");
+        ui.label(tr!("date_input_label"));
         ui.text_edit_singleline(&mut self.input);
         ui.add_space(4.0);
 
         ui.horizontal(|ui| {
-            ui.label("Output format:");
+            ui.label(tr!("date_output_format"));
             ui.text_edit_singleline(&mut self.format);
         });
         ui.add_space(4.0);
 
         ui.horizontal(|ui| {
-            ui.label("Target timezone:");
+            ui.label(tr!("date_target_tz"));
             egui::ComboBox::from_id_salt("date_tz")
                 .selected_text(TIMEZONES[self.tz_index].0)
                 .show_ui(ui, |ui| {
@@ -64,7 +65,7 @@ impl Tool for DateConverter {
         });
         ui.add_space(4.0);
 
-        if ui.button("Convert").clicked() {
+        if ui.button(tr!("btn_convert")).clicked() {
             let fmt = if self.format.is_empty() { "%Y-%m-%d %H:%M:%S %Z" } else { &self.format };
             self.output = match self.input.trim().parse::<i64>() {
                 Ok(ts) => {
@@ -75,7 +76,7 @@ impl Tool for DateConverter {
                     };
                     match dt {
                         Some(dt) => self.format_output(dt, fmt),
-                        None => "Invalid timestamp".to_string(),
+                        None => tr!("date_invalid_ts"),
                     }
                 }
                 Err(_) => {
@@ -106,14 +107,14 @@ impl Tool for DateConverter {
                     }
                     match found {
                         Some(dt) => self.format_output(dt, fmt),
-                        None => "Could not parse date. Try a timestamp or YYYY-MM-DD format.".to_string(),
+                        None => tr!("date_parse_error"),
                     }
                 }
             };
         }
 
         ui.add_space(8.0);
-        ui.label("Output:");
+        ui.label(tr!("label_output"));
         ui.add(
             egui::TextEdit::multiline(&mut self.output)
                 .desired_width(f32::INFINITY)
@@ -121,11 +122,11 @@ impl Tool for DateConverter {
         );
         if !self.output.is_empty() {
             ui.horizontal(|ui| {
-                if ui.button("Copy").clicked() {
+                if ui.button(tr!("btn_copy")).clicked() {
                     ui.ctx().copy_text(self.output.clone());
                 }
-                if ui.button("Save As...").clicked() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "date_output.txt") {
+                if ui.button(tr!("btn_save_as")).clicked() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("date_save_default")) {
                         let _ = std::fs::write(path, &self.output);
                     }
                 }
@@ -139,28 +140,34 @@ impl DateConverter {
         let local = utc_dt.with_timezone(&Local);
         let mut out = String::new();
 
-        out.push_str(&format!("UTC:   {}\n", utc_dt.format(fmt)));
-        out.push_str(&format!("Local: {}\n", local.format(fmt)));
-        out.push_str(&format!("Timestamp (s):  {}\n", utc_dt.timestamp()));
-        out.push_str(&format!("Timestamp (ms): {}\n", utc_dt.timestamp_millis()));
+        out.push_str(&tr!("date_utc", utc_dt.format(fmt)));
+        out.push_str(&tr!("date_local", local.format(fmt)));
+        out.push_str(&tr!("date_ts_s", utc_dt.timestamp()));
+        out.push_str(&tr!("date_ts_ms", utc_dt.timestamp_millis()));
 
         // DST info for local timezone
         let offset = local.offset();
-        out.push_str(&format!("Local UTC offset: {}\n", offset));
+        out.push_str(&tr!("date_utc_offset", offset));
 
         // Day of year, ISO week
-        out.push_str(&format!("Day of year: {}\n", utc_dt.ordinal()));
-        out.push_str(&format!("ISO week:    {}\n", utc_dt.iso_week().week()));
-        out.push_str(&format!("Day of week: {}\n",
-            ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-                [utc_dt.weekday().num_days_from_monday() as usize]
-        ));
+        out.push_str(&tr!("date_day_of_year", utc_dt.ordinal()));
+        out.push_str(&tr!("date_iso_week", utc_dt.iso_week().week()));
+        let dow_names = [
+            tr!("date_dow_mon"),
+            tr!("date_dow_tue"),
+            tr!("date_dow_wed"),
+            tr!("date_dow_thu"),
+            tr!("date_dow_fri"),
+            tr!("date_dow_sat"),
+            tr!("date_dow_sun"),
+        ];
+        out.push_str(&tr!("date_day_of_week", dow_names[utc_dt.weekday().num_days_from_monday() as usize]));
 
         // Common format conversions
-        out.push_str("\n--- Common Formats ---\n");
-        out.push_str(&format!("ISO 8601:      {}\n", utc_dt.format("%Y-%m-%dT%H:%M:%SZ")));
-        out.push_str(&format!("RFC 2822:      {}\n", utc_dt.format("%a, %d %b %Y %H:%M:%S +0000")));
-        out.push_str(&format!("Human readable: {}\n", utc_dt.format("%B %d, %Y %I:%M %p")));
+        out.push_str(&tr!("date_common_formats"));
+        out.push_str(&tr!("date_iso8601", utc_dt.format("%Y-%m-%dT%H:%M:%SZ")));
+        out.push_str(&tr!("date_rfc2822", utc_dt.format("%a, %d %b %Y %H:%M:%S +0000")));
+        out.push_str(&tr!("date_human_readable", utc_dt.format("%B %d, %Y %I:%M %p")));
 
         out
     }

@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use rand::Rng;
 
 #[derive(Default)]
@@ -38,7 +39,7 @@ impl PasswordGenerator {
         }
 
         if charset.is_empty() {
-            self.output = "No password(s) can be generated because no options have been selected.".to_string();
+            self.output = tr!("pw_no_options");
             return;
         }
 
@@ -56,18 +57,18 @@ impl PasswordGenerator {
 }
 
 impl Tool for PasswordGenerator {
-    fn name(&self) -> &str { "Password Generator" }
-    fn description(&self) -> &str { "Generate random passwords" }
+    fn name(&self) -> String { tr!("pw_name") }
+    fn description(&self) -> String { tr!("pw_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Generators }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         self.init();
 
         ui.horizontal(|ui| {
-            ui.label("Length:");
+            ui.label(tr!("pw_length"));
             ui.add(egui::DragValue::new(&mut self.length).range(4..=128).speed(1));
             ui.separator();
-            ui.label("Count:");
+            ui.label(tr!("label_count"));
             ui.add(egui::DragValue::new(&mut self.count).range(1..=50).speed(1));
         });
         ui.add_space(4.0);
@@ -81,22 +82,24 @@ impl Tool for PasswordGenerator {
         ui.add_space(4.0);
 
         ui.horizontal(|ui| {
-            ui.label("Exclude characters:");
+            ui.label(tr!("pw_exclude"));
             ui.text_edit_singleline(&mut self.exclude_chars);
         });
         ui.add_space(4.0);
 
         ui.horizontal(|ui| {
-            if ui.button("Generate").clicked() {
+            let lbl_generate = tr!("btn_generate");
+            if ui.button(lbl_generate).clicked() {
                 self.do_generate();
             }
-            if ui.button("Refresh").clicked() {
+            let lbl_refresh = tr!("btn_refresh");
+            if ui.button(lbl_refresh).clicked() {
                 self.do_generate();
             }
         });
 
         ui.add_space(4.0);
-        ui.label("Output:");
+        ui.label(tr!("label_output"));
         ui.add(
             egui::TextEdit::multiline(&mut self.output)
                 .desired_width(f32::INFINITY)
@@ -104,11 +107,16 @@ impl Tool for PasswordGenerator {
         );
         if !self.output.is_empty() {
             ui.horizontal(|ui| {
-                if ui.button("Copy").clicked() {
+                let lbl_copy = tr!("btn_copy");
+                if ui.button(lbl_copy).clicked() {
                     ui.ctx().copy_text(self.output.clone());
                 }
-                if ui.button("Save As...").clicked() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "passwords.txt") {
+                let lbl_save_as = tr!("btn_save_as");
+                if ui.button(lbl_save_as).clicked() {
+                    let title = tr!("save_as_title");
+                    let filter_text = tr!("save_filter_text");
+                    let default_name = tr!("pw_save_default");
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_text, &["txt"], &default_name) {
                         let _ = std::fs::write(path, &self.output);
                     }
                 }

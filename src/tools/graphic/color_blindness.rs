@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use image::GenericImageView;
 
 const PROTANOPIA_MATRIX: [[f64; 3]; 3] = [
@@ -65,10 +66,13 @@ impl Default for ColorBlindness {
 
 impl ColorBlindness {
     fn load_image(&mut self) {
+        let title = tr!("cb_open_title");
+        let filter_image = tr!("cb_filter_image");
+        let filter_all = tr!("save_filter_all");
         if let Some(path) = rfd::FileDialog::new()
-            .set_title("Open image")
-            .add_filter("Image", &["png", "jpg", "jpeg", "bmp", "gif", "webp"])
-            .add_filter("All files", &["*"])
+            .set_title(&title)
+            .add_filter(&filter_image, &["png", "jpg", "jpeg", "bmp", "gif", "webp"])
+            .add_filter(&filter_all, &["*"])
             .pick_file()
         {
             self.error.clear();
@@ -89,7 +93,7 @@ impl ColorBlindness {
                     self.textures_dirty = true;
                     self.textures = [None, None, None, None];
                 }
-                Err(e) => self.error = format!("Failed to open image: {}", e),
+                Err(e) => self.error = tr!("cb_failed_open", e),
             }
         }
     }
@@ -129,17 +133,18 @@ impl ColorBlindness {
 }
 
 impl Tool for ColorBlindness {
-    fn name(&self) -> &str { "Color Blindness Simulator" }
-    fn description(&self) -> &str { "Simulate how images appear with different types of color blindness" }
+    fn name(&self) -> String { tr!("cb_name") }
+    fn description(&self) -> String { tr!("cb_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Graphic }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            if ui.button("Open Image...").clicked() {
+            let lbl_open = tr!("btn_open_file");
+            if ui.button(lbl_open).clicked() {
                 self.load_image();
             }
             if self.image_loaded {
-                ui.label(format!("{} x {} px", self.img_width, self.img_height));
+                ui.label(tr!("cb_dimensions", self.img_width, self.img_height));
             }
         });
 
@@ -150,7 +155,11 @@ impl Tool for ColorBlindness {
         if self.image_loaded {
             self.ensure_textures(ui.ctx());
 
-            let labels = ["Original", "Protanopia\n(Red-blind)", "Deuteranopia\n(Green-blind)", "Tritanopia\n(Blue-blind)"];
+            let lbl_original = tr!("cb_original");
+            let lbl_protanopia = tr!("cb_protanopia");
+            let lbl_deuteranopia = tr!("cb_deuteranopia");
+            let lbl_tritanopia = tr!("cb_tritanopia");
+            let labels = [&lbl_original, &lbl_protanopia, &lbl_deuteranopia, &lbl_tritanopia];
 
             ui.add_space(8.0);
             ui.columns(4, |cols| {
@@ -162,9 +171,12 @@ impl Tool for ColorBlindness {
                             Self::show_image(ui, tex, self.img_width, self.img_height);
                         }
                         ui.add_space(4.0);
-                        if ui.button("Save As...").clicked() {
-                            // Can't call self.save_view(i) due to borrow, inline it
-                            if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "PNG", &["png"], "simulation.png") {
+                        let lbl_save_as = tr!("btn_save_as");
+                        if ui.button(lbl_save_as).clicked() {
+                            let title = tr!("save_as_title");
+                            let filter_image = tr!("cb_filter_image");
+                            let default_name = tr!("cb_save_default");
+                            if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_image, &["png"], &default_name) {
                                 if let Some(img) = image::RgbaImage::from_raw(
                                     self.img_width,
                                     self.img_height,

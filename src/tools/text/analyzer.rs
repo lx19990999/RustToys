@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 use rand::Rng;
@@ -21,14 +22,15 @@ impl Default for TextAnalyzer {
 }
 
 impl Tool for TextAnalyzer {
-    fn name(&self) -> &str { "Analyzer & Utilities" }
-    fn description(&self) -> &str { "Analyze text: character count, word count, line count, and more" }
+    fn name(&self) -> String { tr!("analyzer_name") }
+    fn description(&self) -> String { tr!("analyzer_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Text }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         let total = ui.available_rect_before_wrap();
+        let err_reading = tr!("err_error_reading");
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&err_reading) {
                 self.input = text;
             }
         }
@@ -48,33 +50,40 @@ impl Tool for TextAnalyzer {
             total.min,
             egui::vec2(left_w, h),
         );
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_show_original = tr!("btn_show_original");
+        let lbl_input = tr!("label_input");
         ui.scope_builder(egui::UiBuilder::new().max_rect(left_rect), |ui| {
-            ui.label(egui::RichText::new("Input").strong());
+            ui.label(egui::RichText::new(&lbl_input).strong());
             ui.add_space(space);
             ui.horizontal_wrapped(|ui| {
-                if ui.button("Paste").clicked() {
+                if ui.button(&lbl_paste).clicked() {
                     match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                         Ok(text) => { self.input = text; self.original_input = None; }
-                        Err(e) => { self.input = format!("Clipboard error: {}", e); }
+                        Err(e) => { self.input = tr!("err_clipboard", e); }
                     }
                 }
-                if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open ...", "Text", &["txt"]);
+                if ui.button(&lbl_open).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("btn_open_file"), &tr!("analyzer_text"), &["txt"]);
                 }
-                if ui.button("Clear").clicked() {
+                if ui.button(&lbl_clear).clicked() {
                     self.input.clear();
                     self.original_input = None;
                 }
-                if ui.button("Copy").clicked() && !self.input.is_empty() {
+                if ui.button(&lbl_copy).clicked() && !self.input.is_empty() {
                     ui.ctx().copy_text(self.input.clone());
                 }
-                if ui.button("Save As...").clicked() && !self.input.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "text_analysis.txt") {
+                if ui.button(&lbl_save_as).clicked() && !self.input.is_empty() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt")) {
                         let _ = std::fs::write(path, &self.input);
                     }
                 }
                 if self.original_input.is_some() {
-                    if ui.button("Show Original").clicked() {
+                    if ui.button(&lbl_show_original).clicked() {
                         if let Some(orig) = self.original_input.take() {
                             self.input = orig;
                         }
@@ -104,8 +113,25 @@ impl Tool for TextAnalyzer {
             right_origin,
             egui::vec2(right_w, stats_h),
         );
+        let lbl_stats = tr!("analyzer_stats");
+        let lbl_selection = tr!("analyzer_selection");
+        let lbl_sel_len = tr!("analyzer_sel_len");
+        let lbl_sel_start = tr!("analyzer_sel_start");
+        let lbl_sel_end = tr!("analyzer_sel_end");
+        let lbl_sel_line = tr!("analyzer_sel_line");
+        let lbl_sel_col = tr!("analyzer_sel_col");
+        let lbl_text = tr!("analyzer_text");
+        let lbl_bytes = tr!("analyzer_bytes");
+        let lbl_chars = tr!("analyzer_chars");
+        let lbl_words = tr!("analyzer_words");
+        let lbl_sentences = tr!("analyzer_sentences");
+        let lbl_paragraphs = tr!("analyzer_paragraphs");
+        let lbl_lines = tr!("analyzer_lines");
+        let lbl_line_break = tr!("analyzer_line_break");
+        let lbl_char_freq = tr!("analyzer_char_freq");
+        let lbl_word_freq = tr!("analyzer_word_freq");
         ui.scope_builder(egui::UiBuilder::new().max_rect(stats_rect), |ui| {
-            ui.label(egui::RichText::new("Statistics").strong());
+            ui.label(egui::RichText::new(&lbl_stats).strong());
             ui.separator();
 
             egui::ScrollArea::vertical()
@@ -113,40 +139,40 @@ impl Tool for TextAnalyzer {
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     // Selection stats
-                    ui.label(egui::RichText::new("Selection").underline().strong());
+                    ui.label(egui::RichText::new(&lbl_selection).underline().strong());
                     ui.add_space(2.0);
                     egui::Grid::new("sel_stats_grid")
                         .num_columns(2)
                         .spacing([12.0, 1.0])
                         .striped(true)
                         .show(ui, |ui| {
-                            ui.label("Selection Length"); ui.label(format!("{}", sel_stats.len)); ui.end_row();
-                            ui.label("Start Position"); ui.label(format!("{}", sel_stats.start)); ui.end_row();
-                            ui.label("End Position"); ui.label(format!("{}", sel_stats.end)); ui.end_row();
-                            ui.label("Line Number"); ui.label(format!("{}", sel_stats.line)); ui.end_row();
-                            ui.label("Column Number"); ui.label(format!("{}", sel_stats.col)); ui.end_row();
+                            ui.label(&lbl_sel_len); ui.label(format!("{}", sel_stats.len)); ui.end_row();
+                            ui.label(&lbl_sel_start); ui.label(format!("{}", sel_stats.start)); ui.end_row();
+                            ui.label(&lbl_sel_end); ui.label(format!("{}", sel_stats.end)); ui.end_row();
+                            ui.label(&lbl_sel_line); ui.label(format!("{}", sel_stats.line)); ui.end_row();
+                            ui.label(&lbl_sel_col); ui.label(format!("{}", sel_stats.col)); ui.end_row();
                         });
 
                     ui.add_space(6.0);
-                    ui.label(egui::RichText::new("Text").underline().strong());
+                    ui.label(egui::RichText::new(&lbl_text).underline().strong());
                     ui.add_space(2.0);
                     egui::Grid::new("text_stats_grid")
                         .num_columns(2)
                         .spacing([12.0, 1.0])
                         .striped(true)
                         .show(ui, |ui| {
-                            ui.label("Bytes"); ui.label(format!("{}", stats.bytes)); ui.end_row();
-                            ui.label("Characters"); ui.label(format!("{}", stats.chars)); ui.end_row();
-                            ui.label("Words"); ui.label(format!("{}", stats.words)); ui.end_row();
-                            ui.label("Sentences"); ui.label(format!("{}", stats.sentences)); ui.end_row();
-                            ui.label("Paragraphs"); ui.label(format!("{}", stats.paragraphs)); ui.end_row();
-                            ui.label("Lines"); ui.label(format!("{}", stats.lines)); ui.end_row();
-                            ui.label("Line Break"); ui.label(&stats.line_break_type); ui.end_row();
+                            ui.label(&lbl_bytes); ui.label(format!("{}", stats.bytes)); ui.end_row();
+                            ui.label(&lbl_chars); ui.label(format!("{}", stats.chars)); ui.end_row();
+                            ui.label(&lbl_words); ui.label(format!("{}", stats.words)); ui.end_row();
+                            ui.label(&lbl_sentences); ui.label(format!("{}", stats.sentences)); ui.end_row();
+                            ui.label(&lbl_paragraphs); ui.label(format!("{}", stats.paragraphs)); ui.end_row();
+                            ui.label(&lbl_lines); ui.label(format!("{}", stats.lines)); ui.end_row();
+                            ui.label(&lbl_line_break); ui.label(&stats.line_break_type); ui.end_row();
                         });
 
                     if !stats.char_freq.is_empty() || !stats.word_freq.is_empty() {
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Character frequency").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_char_freq).underline().strong());
                         ui.add_space(2.0);
                         egui::Grid::new("char_freq_grid")
                             .num_columns(2)
@@ -163,7 +189,7 @@ impl Tool for TextAnalyzer {
 
                         if !stats.word_freq.is_empty() {
                             ui.add_space(6.0);
-                            ui.label(egui::RichText::new("Word frequency").underline().strong());
+                            ui.label(egui::RichText::new(&lbl_word_freq).underline().strong());
                             ui.add_space(2.0);
                             egui::Grid::new("word_freq_grid")
                                 .num_columns(2)
@@ -188,27 +214,38 @@ impl Tool for TextAnalyzer {
             egui::pos2(right_origin.x, actions_y),
             egui::vec2(right_w, actions_h),
         );
+        let lbl_convert_line_break = tr!("analyzer_convert_line_break");
+        let lbl_lf = tr!("analyzer_lf");
+        let lbl_crlf = tr!("analyzer_crlf");
+        let lbl_convert_case = tr!("analyzer_convert_case");
+        let lbl_sort_lines = tr!("analyzer_sort_lines");
+        let lbl_alphabetize = tr!("analyzer_alphabetize");
+        let lbl_reverse_alpha = tr!("analyzer_reverse_alpha");
+        let lbl_by_last_word = tr!("analyzer_by_last_word");
+        let lbl_reverse_by_last_word = tr!("analyzer_reverse_by_last_word");
+        let lbl_reverse = tr!("analyzer_reverse");
+        let lbl_randomize = tr!("analyzer_randomize");
         ui.scope_builder(egui::UiBuilder::new().max_rect(actions_rect), |ui| {
             egui::ScrollArea::vertical()
                 .id_salt("analyzer_actions_scroll")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     // Convert Line Break
-                    ui.label(egui::RichText::new("Convert Line Break").strong());
+                    ui.label(egui::RichText::new(&lbl_convert_line_break).strong());
                     ui.add_space(2.0);
                     ui.horizontal_wrapped(|ui| {
-                        if ui.button("LF (\\n)").clicked() {
+                        if ui.button(&lbl_lf).clicked() {
                             self.save_original();
                             self.input = self.input.replace("\r\n", "\n").replace('\r', "\n");
                         }
-                        if ui.button("CRLF (\\r\\n)").clicked() {
+                        if ui.button(&lbl_crlf).clicked() {
                             self.save_original();
                             self.input = self.input.replace("\r\n", "\n").replace('\r', "\n").replace('\n', "\r\n");
                         }
                     });
 
                     ui.add_space(8.0);
-                    ui.label(egui::RichText::new("Convert Case").strong());
+                    ui.label(egui::RichText::new(&lbl_convert_case).strong());
                     ui.add_space(2.0);
                     ui.horizontal_wrapped(|ui| {
                         let cases = [
@@ -236,42 +273,42 @@ impl Tool for TextAnalyzer {
                     });
 
                     ui.add_space(8.0);
-                    ui.label(egui::RichText::new("Sort Lines").strong());
+                    ui.label(egui::RichText::new(&lbl_sort_lines).strong());
                     ui.add_space(2.0);
                     ui.horizontal_wrapped(|ui| {
-                        if ui.button("Alphabetize").clicked() {
+                        if ui.button(&lbl_alphabetize).clicked() {
                             self.save_original();
                             let mut lines: Vec<&str> = self.input.lines().collect();
                             lines.sort();
                             self.input = lines.join("\n");
                         }
-                        if ui.button("Reverse Alphabetize").clicked() {
+                        if ui.button(&lbl_reverse_alpha).clicked() {
                             self.save_original();
                             let mut lines: Vec<&str> = self.input.lines().collect();
                             lines.sort();
                             lines.reverse();
                             self.input = lines.join("\n");
                         }
-                        if ui.button("By Last Word").clicked() {
+                        if ui.button(&lbl_by_last_word).clicked() {
                             self.save_original();
                             let mut lines: Vec<&str> = self.input.lines().collect();
                             lines.sort_by_key(|l| l.split_whitespace().last().unwrap_or("").to_string());
                             self.input = lines.join("\n");
                         }
-                        if ui.button("Reverse By Last Word").clicked() {
+                        if ui.button(&lbl_reverse_by_last_word).clicked() {
                             self.save_original();
                             let mut lines: Vec<&str> = self.input.lines().collect();
                             lines.sort_by_key(|l| l.split_whitespace().last().unwrap_or("").to_string());
                             lines.reverse();
                             self.input = lines.join("\n");
                         }
-                        if ui.button("Reverse").clicked() {
+                        if ui.button(&lbl_reverse).clicked() {
                             self.save_original();
                             let mut lines: Vec<&str> = self.input.lines().collect();
                             lines.reverse();
                             self.input = lines.join("\n");
                         }
-                        if ui.button("Randomize").clicked() {
+                        if ui.button(&lbl_randomize).clicked() {
                             self.save_original();
                             let mut lines: Vec<&str> = self.input.lines().collect();
                             let mut rng = rand::thread_rng();

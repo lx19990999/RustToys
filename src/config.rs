@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
+use crate::i18n::Language;
 
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -12,12 +13,13 @@ pub enum ThemeMode {
 }
 
 impl ThemeMode {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Light => "Light",
-            Self::Dark => "Dark",
-            Self::System => "System",
-        }
+    pub fn label(&self) -> String {
+        let key = match self {
+            Self::Light => "theme_light",
+            Self::Dark => "theme_dark",
+            Self::System => "theme_system",
+        };
+        crate::i18n::tr(key)
     }
 }
 
@@ -29,6 +31,8 @@ pub struct Config {
     pub dpi: f32,
     #[serde(default)]
     pub lastsavefolder: Option<String>,
+    #[serde(default)]
+    pub language: Language,
 }
 
 impl Default for Config {
@@ -37,6 +41,7 @@ impl Default for Config {
             theme: ThemeMode::System,
             dpi: 0.0,
             lastsavefolder: None,
+            language: Language::default(),
         }
     }
 }
@@ -77,6 +82,7 @@ static CONFIG: Mutex<Option<Config>> = Mutex::new(None);
 
 pub fn init() {
     let cfg = Config::load();
+    crate::i18n::init(cfg.language);
     let mut guard = CONFIG.lock().unwrap();
     *guard = Some(cfg);
 }

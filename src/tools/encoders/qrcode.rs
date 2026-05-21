@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async};
 
 
@@ -41,19 +42,21 @@ impl Default for QrCode {
 
 
 impl Tool for QrCode {
-    fn name(&self) -> &str { "QR Code Encoder / Decoder" }
-    fn description(&self) -> &str { "Generate QR codes from text or decode from image files" }
+    fn name(&self) -> String { tr!("qr_name") }
+    fn description(&self) -> String { tr!("qr_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
         }
+        let label_encode = tr!("label_encode");
+        let label_decode = tr!("label_decode");
         ui.horizontal(|ui| {
-            ui.radio_value(&mut self.mode, false, "Encode");
-            ui.radio_value(&mut self.mode, true, "Decode");
+            ui.radio_value(&mut self.mode, false, &label_encode);
+            ui.radio_value(&mut self.mode, true, &label_decode);
         });
         ui.add_space(4.0);
 
@@ -74,16 +77,16 @@ impl QrCode {
             // Left: Input
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open text file", "Text", &["txt"]);
+                    if ui.button(tr!("btn_open_file")).clicked() {
+                        open_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"]);
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.svg_output.clear();
                         self.png_bytes.clear();
@@ -93,15 +96,19 @@ impl QrCode {
                 });
                 ui.add_space(2.0);
 
+                let ecc_l = tr!("qr_ecc_l");
+                let ecc_m = tr!("qr_ecc_m");
+                let ecc_q = tr!("qr_ecc_q");
+                let ecc_h = tr!("qr_ecc_h");
                 ui.horizontal(|ui| {
-                    ui.label("Error correction:");
-                    ui.radio_value(&mut self.ecc_level, 0, "L (7%)");
-                    ui.radio_value(&mut self.ecc_level, 1, "M (15%)");
-                    ui.radio_value(&mut self.ecc_level, 2, "Q (25%)");
-                    ui.radio_value(&mut self.ecc_level, 3, "H (30%)");
+                    ui.label(tr!("qr_ecc_label"));
+                    ui.radio_value(&mut self.ecc_level, 0, &ecc_l);
+                    ui.radio_value(&mut self.ecc_level, 1, &ecc_m);
+                    ui.radio_value(&mut self.ecc_level, 2, &ecc_q);
+                    ui.radio_value(&mut self.ecc_level, 3, &ecc_h);
                 });
                 ui.add_space(2.0);
-                ui.label("Input:");
+                ui.label(tr!("label_input"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("qr_encode_input_scroll")
@@ -137,20 +144,20 @@ impl QrCode {
                     ui.add_space(4.0);
 
                     ui.horizontal(|ui| {
-                        if ui.button("Copy PNG").clicked() {
+                        if ui.button(tr!("btn_copy_png")).clicked() {
                             let b64 = base64::Engine::encode(
                                 &base64::engine::general_purpose::STANDARD,
                                 &self.png_bytes,
                             );
                             ui.ctx().copy_text(b64);
                         }
-                        if ui.button("Save As PNG...").clicked() {
-                            if let Some(path) = crate::tools::async_utils::save_file_dialog("Save QR code as PNG", "PNG", &["png"], "qrcode.png") {
+                        if ui.button(tr!("btn_save_png")).clicked() {
+                            if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("qr_save_png_title"), "PNG", &["png"], &tr!("qr_save_png")) {
                                 let _ = std::fs::write(path, &self.png_bytes);
                             }
                         }
-                        if ui.button("Save As SVG...").clicked() && !self.svg_output.is_empty() {
-                            if let Some(path) = crate::tools::async_utils::save_file_dialog("Save QR code as SVG", "SVG", &["svg"], "qrcode.svg") {
+                        if ui.button(tr!("btn_save_svg")).clicked() && !self.svg_output.is_empty() {
+                            if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("qr_save_svg_title"), "SVG", &["svg"], &tr!("qr_save_svg")) {
                                 let _ = std::fs::write(path, &self.svg_output);
                             }
                         }
@@ -158,12 +165,12 @@ impl QrCode {
                 } else if !self.input.trim().is_empty() {
                     ui.vertical_centered(|ui| {
                         ui.add_space(40.0);
-                        ui.label("Generating...");
+                        ui.label(tr!("qr_generating"));
                     });
                 } else {
                     ui.vertical_centered(|ui| {
                         ui.add_space(40.0);
-                        ui.label("Enter text to generate a QR code.");
+                        ui.label(tr!("qr_enter_text"));
                     });
                 }
             });
@@ -172,18 +179,18 @@ impl QrCode {
 
     fn ui_decode(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            if ui.button("Open Image...").clicked() {
+            if ui.button(tr!("btn_open_image")).clicked() {
                 if let Some(path) = rfd::FileDialog::new()
-                    .set_title("Open QR code image")
-                    .add_filter("Image", &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
-                    .add_filter("All files", &["*"])
+                    .set_title(&tr!("qr_open_title"))
+                    .add_filter(&tr!("cb_filter_image"), &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
+                    .add_filter(&tr!("save_filter_all"), &["*"])
                     .pick_file()
                 {
                     self.decode_file_path = path.to_string_lossy().to_string();
                     self.decode_from_file(ui.ctx());
                 }
             }
-            if ui.button("Paste Image").clicked() {
+            if ui.button(tr!("btn_paste_image")).clicked() {
                 match arboard::Clipboard::new().and_then(|mut cb| cb.get_image()) {
                     Ok(img) => {
                         let rgba = img.bytes;
@@ -198,10 +205,10 @@ impl QrCode {
                         self.decode_qr_from_rgba(&rgba, w as u32, h as u32);
                         self.decode_error.clear();
                     }
-                    Err(e) => self.decode_error = format!("Clipboard image error: {}", e),
+                    Err(e) => self.decode_error = tr!("err_clipboard_image", e),
                 }
             }
-            if ui.button("Clear").clicked() {
+            if ui.button(tr!("btn_clear")).clicked() {
                 self.decoded_text.clear();
                 self.decode_error.clear();
                 self.decode_file_path.clear();
@@ -214,7 +221,7 @@ impl QrCode {
             // Left: Image preview
             cols[0].vertical(|ui| {
                 if !self.decode_file_path.is_empty() {
-                    ui.label(format!("File: {}", self.decode_file_path));
+                    ui.label(tr!("b64i_file_label", self.decode_file_path));
                 }
                 if let Some(tex) = &self.decode_preview {
                     ui.add_space(4.0);
@@ -225,7 +232,7 @@ impl QrCode {
                         ui.image((tex.id(), size));
                     });
                 } else {
-                    ui.label("Open or paste a QR code image to decode.");
+                    ui.label(tr!("qr_paste_image_hint"));
                 }
             });
 
@@ -237,17 +244,17 @@ impl QrCode {
                 }
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.decoded_text.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.decoded_text.is_empty() {
                         ui.ctx().copy_text(self.decoded_text.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.decoded_text.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save decoded text as", "Text", &["txt"], "decoded.txt") {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.decoded_text.is_empty() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("qr_save_decoded"), &tr!("save_filter_text"), &["txt"], &tr!("qr_decoded_txt")) {
                             let _ = std::fs::write(path, &self.decoded_text);
                         }
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("Decoded Text:");
+                ui.label(tr!("qr_decoded_label"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("qr_decode_output_scroll")
@@ -284,7 +291,7 @@ impl QrCode {
         let matrix = match qrcode_generator::to_matrix(&self.input, ecc) {
             Ok(v) => v,
             Err(e) => {
-                self.error = format!("QR generation error: {}", e);
+                self.error = tr!("qr_gen_error", e);
                 return;
             }
         };
@@ -359,10 +366,10 @@ impl QrCode {
                         // Decode
                         self.decode_qr_from_rgba(&rgba, w, h);
                     }
-                    Err(e) => self.decode_error = format!("Cannot open image: {}", e),
+                    Err(e) => self.decode_error = tr!("qr_cannot_open", e),
                 }
             }
-            Err(e) => self.decode_error = format!("File read error: {}", e),
+            Err(e) => self.decode_error = tr!("err_file_read", e),
         }
     }
 
@@ -387,7 +394,7 @@ impl QrCode {
 
         let grids = img.detect_grids();
         if grids.is_empty() {
-            self.decode_error = "No QR code detected in image".to_string();
+            self.decode_error = tr!("qr_no_detected");
             return;
         }
 
@@ -395,7 +402,7 @@ impl QrCode {
         for grid in grids {
             match grid.decode() {
                 Ok((_meta, content)) => results.push(content),
-                Err(e) => results.push(format!("[decode error: {}]", e)),
+                Err(e) => results.push(tr!("qr_decode_error_fmt", e)),
             }
         }
 

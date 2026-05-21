@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 
 #[derive(Default)]
 pub struct CronParser {
@@ -12,8 +13,8 @@ pub struct CronParser {
 }
 
 impl Tool for CronParser {
-    fn name(&self) -> &str { "Cron Parser" }
-    fn description(&self) -> &str { "Parse cron expressions and show upcoming execution times" }
+    fn name(&self) -> String { tr!("cron_name") }
+    fn description(&self) -> String { tr!("cron_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
@@ -22,23 +23,23 @@ impl Tool for CronParser {
             self.date_format = "%Y-%m-%d %H:%M:%S".to_string();
         }
 
-        ui.label("Cron Expression:");
+        ui.label(tr!("cron_expression_label"));
         ui.text_edit_singleline(&mut self.input);
         ui.add_space(4.0);
 
         ui.horizontal(|ui| {
-            ui.checkbox(&mut self.include_seconds, "Include seconds in expression");
+            ui.checkbox(&mut self.include_seconds, tr!("cron_include_seconds"));
             ui.separator();
-            ui.label("Count:");
+            ui.label(tr!("label_count"));
             ui.add(egui::DragValue::new(&mut self.count).range(1..=50).speed(1));
         });
         ui.add_space(4.0);
 
-        ui.label("Output date time format (chrono strftime):");
+        ui.label(tr!("cron_output_format"));
         ui.text_edit_singleline(&mut self.date_format);
         ui.add_space(4.0);
 
-        if ui.button("Parse").clicked() {
+        if ui.button(tr!("btn_parse")).clicked() {
             self.description.clear();
             self.output.clear();
 
@@ -61,13 +62,13 @@ impl Tool for CronParser {
                         .map(|dt| dt.format(&self.date_format).to_string())
                         .collect();
                     if times.is_empty() {
-                        self.output = "No upcoming times found".to_string();
+                        self.output = tr!("cron_no_times");
                     } else {
                         self.output = times.join("\n");
                     }
                 }
                 Err(e) => {
-                    self.output = format!("Cron expression is not valid: {}", e);
+                    self.output = tr!("cron_error", e);
                 }
             }
         }
@@ -75,13 +76,13 @@ impl Tool for CronParser {
         if !self.description.is_empty() {
             ui.add_space(4.0);
             ui.group(|ui| {
-                ui.label(egui::RichText::new("Cron description").strong());
+                ui.label(egui::RichText::new(tr!("cron_description")).strong());
                 ui.label(&self.description);
             });
             ui.add_space(4.0);
         }
 
-        ui.label("Next scheduled dates:");
+        ui.label(tr!("cron_next_dates"));
         ui.add(
             egui::TextEdit::multiline(&mut self.output)
                 .desired_width(f32::INFINITY)
@@ -89,11 +90,11 @@ impl Tool for CronParser {
         );
         if !self.output.is_empty() {
             ui.horizontal(|ui| {
-                if ui.button("Copy").clicked() {
+                if ui.button(tr!("btn_copy")).clicked() {
                     ui.ctx().copy_text(self.output.clone());
                 }
-                if ui.button("Save As...").clicked() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "cron_schedule.txt") {
+                if ui.button(tr!("btn_save_as")).clicked() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("cron_save_default")) {
                         let _ = std::fs::write(path, &self.output);
                     }
                 }
@@ -109,49 +110,49 @@ fn describe_cron(expr: &str, has_seconds: bool) -> String {
     } else if !has_seconds && fields.len() == 5 {
         ("*", fields[0], fields[1], fields[2], fields[3], fields[4])
     } else {
-        return format!("Unable to parse (expected {} fields)", if has_seconds { 6 } else { 5 });
+        return tr!("cron_unable_parse", if has_seconds { 6 } else { 5 });
     };
 
     let mut parts = Vec::new();
 
     // Seconds
     if has_seconds && sec != "*" {
-        parts.push(format!("at second {}", describe_field(sec, "second")));
+        parts.push(tr!("cron_at_second", describe_field(sec, "second")));
     }
 
     // Minutes
     if min != "*" {
-        parts.push(format!("at minute {}", describe_field(min, "minute")));
+        parts.push(tr!("cron_at_minute", describe_field(min, "minute")));
     }
 
     // Hours
     if hour != "*" {
-        parts.push(format!("at hour {}", describe_field(hour, "hour")));
+        parts.push(tr!("cron_at_hour", describe_field(hour, "hour")));
     }
 
     // Day of month
     if dom != "*" {
-        parts.push(format!("on day {} of the month", describe_field(dom, "day")));
+        parts.push(tr!("cron_on_day", describe_field(dom, "day")));
     }
 
     // Month
     if month != "*" {
-        let month_names = ["", "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"];
-        parts.push(format!("in {}", describe_named_field(month, &month_names)));
+        let month_names = vec![String::new(), tr!("cron_january"), tr!("cron_february"), tr!("cron_march"), tr!("cron_april"), tr!("cron_may"), tr!("cron_june"),
+            tr!("cron_july"), tr!("cron_august"), tr!("cron_september"), tr!("cron_october"), tr!("cron_november"), tr!("cron_december")];
+        parts.push(tr!("cron_in_month", describe_named_field(month, &month_names)));
     }
 
     // Day of week
     if dow != "*" {
-        let dow_names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        parts.push(format!("on {}", describe_named_field(dow, &dow_names)));
+        let dow_names = vec![tr!("cron_sunday"), tr!("cron_monday"), tr!("cron_tuesday"), tr!("cron_wednesday"), tr!("cron_thursday"), tr!("cron_friday"), tr!("cron_saturday")];
+        parts.push(tr!("cron_on_dow", describe_named_field(dow, &dow_names)));
     }
 
     if parts.is_empty() {
-        return "Every second (always)".to_string();
+        return tr!("cron_every_second");
     }
 
-    format!("Runs {}", parts.join(", "))
+    tr!("cron_runs", parts.join(", "))
 }
 
 fn describe_field(field: &str, unit: &str) -> String {
@@ -160,7 +161,7 @@ fn describe_field(field: &str, unit: &str) -> String {
         return items.join(", ");
     }
     if let Some(stripped) = field.strip_prefix("*/") {
-        return format!("every {} {}s", stripped, unit);
+        return tr!("cron_every_n", stripped, unit);
     }
     if field.contains('-') {
         return field.to_string();
@@ -168,7 +169,7 @@ fn describe_field(field: &str, unit: &str) -> String {
     field.to_string()
 }
 
-fn describe_named_field(field: &str, names: &[&str]) -> String {
+fn describe_named_field(field: &str, names: &[String]) -> String {
     if field.contains(',') {
         let items: Vec<String> = field.split(',')
             .filter_map(|s| {
@@ -183,7 +184,7 @@ fn describe_named_field(field: &str, names: &[&str]) -> String {
         return items.join(", ");
     }
     if let Some(stripped) = field.strip_prefix("*/") {
-        return format!("every {}th", stripped);
+        return tr!("cron_every_nth", stripped);
     }
     if let Ok(n) = field.parse::<usize>() {
         if let Some(name) = names.get(n) {

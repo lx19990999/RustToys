@@ -3,6 +3,8 @@ use crate::sidebar::Sidebar;
 use crate::tool::Tool;
 use crate::tools;
 use crate::config;
+use crate::i18n::Language;
+use crate::tr;
 
 pub struct RustToysApp {
     sidebar: Sidebar,
@@ -10,6 +12,7 @@ pub struct RustToysApp {
     dpi_scale: f32,
     dpi_initialized: bool,
     theme_mode: config::ThemeMode,
+    language: Language,
 }
 
 impl RustToysApp {
@@ -26,6 +29,7 @@ impl RustToysApp {
             dpi_scale,
             dpi_initialized,
             theme_mode: cfg.theme,
+            language: cfg.language,
         }
     }
 
@@ -76,10 +80,10 @@ impl eframe::App for RustToysApp {
         // Top panel
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                ui.heading("RustToys");
+                ui.heading(tr!("app_title"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     // DPI control
-                    ui.label(format!("DPI: {:.1}x", self.dpi_scale));
+                    ui.label(tr!("dpi_label", self.dpi_scale));
                     if ui.button("-").clicked() && self.dpi_scale > 0.5 {
                         self.dpi_scale = (self.dpi_scale - 0.25).max(0.5);
                         config::update(|cfg| cfg.dpi = self.dpi_scale);
@@ -89,21 +93,39 @@ impl eframe::App for RustToysApp {
                         config::update(|cfg| cfg.dpi = self.dpi_scale);
                     }
                     ui.separator();
-                    // Theme selector
-                    let prev_theme = self.theme_mode;
-                    egui::ComboBox::from_id_salt("theme_selector")
-                        .selected_text(format!("Theme: {}", self.theme_mode.label()))
+
+                    // Language selector
+                    let prev_lang = self.language;
+                    egui::ComboBox::from_id_salt("language_selector")
+                        .selected_text(self.language.label())
                         .width(100.0)
                         .show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.theme_mode, config::ThemeMode::Light, "Light");
-                            ui.selectable_value(&mut self.theme_mode, config::ThemeMode::Dark, "Dark");
-                            ui.selectable_value(&mut self.theme_mode, config::ThemeMode::System, "System");
+                            for &lang in Language::all() {
+                                ui.selectable_value(&mut self.language, lang, lang.label());
+                            }
+                        });
+                    if self.language != prev_lang {
+                        crate::i18n::set(self.language);
+                        config::update(|cfg| cfg.language = self.language);
+                    }
+                    ui.separator();
+
+                    // Theme selector
+                    let prev_theme = self.theme_mode;
+                    let theme_label = tr!("theme_label", self.theme_mode.label());
+                    egui::ComboBox::from_id_salt("theme_selector")
+                        .selected_text(theme_label)
+                        .width(120.0)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.theme_mode, config::ThemeMode::Light, tr!("theme_light"));
+                            ui.selectable_value(&mut self.theme_mode, config::ThemeMode::Dark, tr!("theme_dark"));
+                            ui.selectable_value(&mut self.theme_mode, config::ThemeMode::System, tr!("theme_system"));
                         });
                     if self.theme_mode != prev_theme {
                         config::update(|cfg| cfg.theme = self.theme_mode);
                     }
                     ui.separator();
-                    if ui.button("Quit").clicked() {
+                    if ui.button(tr!("quit")).clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
@@ -134,11 +156,11 @@ impl eframe::App for RustToysApp {
         // Bottom panel
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.label(format!("Tools: {}", self.tools.len()));
+                ui.label(tr!("tools_count", self.tools.len()));
                 ui.separator();
                 let idx = self.sidebar.selected_tool;
                 if idx < self.tools.len() {
-                    ui.label(format!("Active: {}", self.tools[idx].name()));
+                    ui.label(tr!("active_label", self.tools[idx].name()));
                 }
             });
         });

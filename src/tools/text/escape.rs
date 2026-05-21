@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 
@@ -25,13 +26,14 @@ impl Default for EscapeUnescape {
 }
 
 impl Tool for EscapeUnescape {
-    fn name(&self) -> &str { "Escape / Unescape" }
-    fn description(&self) -> &str { "Escape or unescape special characters in strings" }
+    fn name(&self) -> String { tr!("esc_name") }
+    fn description(&self) -> String { tr!("esc_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Text }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let err_reading = tr!("err_error_reading");
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&err_reading) {
                 self.input = text;
             }
         }
@@ -57,10 +59,12 @@ impl Tool for EscapeUnescape {
             total.min,
             egui::vec2(w, mode_h),
         );
+        let lbl_escape = tr!("esc_escape");
+        let lbl_unescape = tr!("esc_unescape");
         ui.scope_builder(egui::UiBuilder::new().max_rect(mode_rect), |ui| {
             ui.horizontal(|ui| {
-                ui.radio_value(&mut self.escape_mode, true, "Escape");
-                ui.radio_value(&mut self.escape_mode, false, "Unescape");
+                ui.radio_value(&mut self.escape_mode, true, &lbl_escape);
+                ui.radio_value(&mut self.escape_mode, false, &lbl_unescape);
             });
         });
 
@@ -71,28 +75,35 @@ impl Tool for EscapeUnescape {
             egui::pos2(total.min.x, cols_y),
             egui::vec2(half_w, cols_h),
         );
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_input = tr!("label_input");
+        let lbl_output = tr!("label_output");
         ui.scope_builder(egui::UiBuilder::new().max_rect(left_rect), |ui| {
-            ui.label(egui::RichText::new("Input").strong());
+            ui.label(egui::RichText::new(&lbl_input).strong());
             ui.add_space(space);
             ui.horizontal_wrapped(|ui| {
-                if ui.button("Paste").clicked() {
+                if ui.button(&lbl_paste).clicked() {
                     match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                         Ok(text) => self.input = text,
-                        Err(e) => self.output = format!("Clipboard error: {}", e),
+                        Err(e) => self.output = tr!("err_clipboard", e),
                     }
                 }
-                if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open text file", "Text", &["txt"]);
+                if ui.button(&lbl_open).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("btn_open_file"), &tr!("save_filter_text"), &["txt"]);
                 }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(&lbl_clear).clicked() {
                     self.input.clear();
                     self.output.clear();
                 }
-                if ui.button("Copy").clicked() && !self.input.is_empty() {
+                if ui.button(&lbl_copy).clicked() && !self.input.is_empty() {
                     ui.ctx().copy_text(self.input.clone());
                 }
-                if ui.button("Save As...").clicked() && !self.input.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "escape_input.txt") {
+                if ui.button(&lbl_save_as).clicked() && !self.input.is_empty() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("esc_save_input")) {
                         let _ = std::fs::write(path, &self.input);
                     }
                 }
@@ -112,14 +123,14 @@ impl Tool for EscapeUnescape {
             egui::vec2(half_w, cols_h),
         );
         ui.scope_builder(egui::UiBuilder::new().max_rect(right_rect), |ui| {
-            ui.label(egui::RichText::new("Output").strong());
+            ui.label(egui::RichText::new(&lbl_output).strong());
             ui.add_space(space);
             ui.horizontal_wrapped(|ui| {
-                if ui.button("Copy").clicked() && !self.output.is_empty() {
+                if ui.button(&lbl_copy).clicked() && !self.output.is_empty() {
                     ui.ctx().copy_text(self.output.clone());
                 }
-                if ui.button("Save As...").clicked() && !self.output.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "escaped_output.txt") {
+                if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("esc_save_output")) {
                         let _ = std::fs::write(path, &self.output);
                     }
                 }

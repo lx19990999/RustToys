@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 use quick_xml::Reader;
@@ -73,7 +74,7 @@ impl XmlTester {
                 }
             },
             Err(e) => {
-                self.error = format!("XSD parse error: {}", e);
+                self.error = tr!("xsd_parse_error", e);
                 self.severity = Severity::Error;
             }
         }
@@ -89,13 +90,14 @@ impl XmlTester {
 }
 
 impl Tool for XmlTester {
-    fn name(&self) -> &str { "XML / XSD Tester" }
-    fn description(&self) -> &str { "Validate XML data via an XSD scheme" }
+    fn name(&self) -> String { tr!("xsd_name") }
+    fn description(&self) -> String { tr!("xsd_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Testers }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let err_reading = tr!("err_error_reading");
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&err_reading) {
                 self.xsd_input = text;
             }
         }
@@ -118,20 +120,27 @@ impl Tool for XmlTester {
             total.min,
             egui::vec2(half_w, cols_h),
         );
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_xsd = tr!("xsd_label");
+        let lbl_xml = tr!("xml_label");
         ui.scope_builder(egui::UiBuilder::new().max_rect(left_rect), |ui| {
-            ui.label(egui::RichText::new("XSD").strong());
+            ui.label(egui::RichText::new(&lbl_xsd).strong());
             ui.add_space(space);
             ui.horizontal(|ui| {
-                if ui.button("Paste").clicked() {
+                if ui.button(&lbl_paste).clicked() {
                     match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                         Ok(text) => { self.xsd_input = text; self.error.clear(); }
-                        Err(e) => self.error = format!("Clipboard error: {}", e),
+                        Err(e) => self.error = tr!("err_clipboard", e),
                     }
                 }
-                if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open XSD file", "XSD", &["xsd"]);
+                if ui.button(&lbl_open).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("btn_open_file"), &tr!("xsd_label"), &["xsd"]);
                 }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(&lbl_clear).clicked() {
                     self.xsd_input.clear();
                     self.output.clear();
                     self.error.clear();
@@ -153,19 +162,19 @@ impl Tool for XmlTester {
             egui::vec2(half_w, cols_h),
         );
         ui.scope_builder(egui::UiBuilder::new().max_rect(right_rect), |ui| {
-            ui.label(egui::RichText::new("XML").strong());
+            ui.label(egui::RichText::new(&lbl_xml).strong());
             ui.add_space(space);
             ui.horizontal(|ui| {
-                if ui.button("Paste").clicked() {
+                if ui.button(&lbl_paste).clicked() {
                     match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                         Ok(text) => { self.xml_input = text; self.error.clear(); }
-                        Err(e) => self.error = format!("Clipboard error: {}", e),
+                        Err(e) => self.error = tr!("err_clipboard", e),
                     }
                 }
-                if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open XSD file", "XSD", &["xsd"]);
+                if ui.button(&lbl_open).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("btn_open_file"), &tr!("xsd_label"), &["xsd"]);
                 }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(&lbl_clear).clicked() {
                     self.xml_input.clear();
                     self.output.clear();
                     self.error.clear();
@@ -191,11 +200,12 @@ impl Tool for XmlTester {
                 egui::pos2(total.min.x, result_y),
                 egui::vec2(w, result_h),
             );
+            let lbl_compliant = tr!("xsd_compliant");
             ui.scope_builder(egui::UiBuilder::new().max_rect(result_rect), |ui| {
                 ui.group(|ui| {
                     let (text, color) = match self.severity {
                         Severity::Success => {
-                            ui.colored_label(egui::Color32::from_rgb(0, 150, 0), "XML is compliant to the defined XSD scheme.");
+                            ui.colored_label(egui::Color32::from_rgb(0, 150, 0), &lbl_compliant);
                             (self.output.clone(), egui::Color32::from_rgb(0, 150, 0))
                         }
                         Severity::Warning => {
@@ -216,12 +226,12 @@ impl Tool for XmlTester {
                             });
                     }
                     ui.horizontal(|ui| {
-                        if ui.button("Copy").clicked() {
+                        if ui.button(&lbl_copy).clicked() {
                             let t = if self.error.is_empty() { &self.output } else { &self.error };
                             ui.ctx().copy_text(t.clone());
                         }
-                        if ui.button("Save As...").clicked() {
-                            if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "xml_validation.txt") {
+                        if ui.button(&lbl_save_as).clicked() {
+                            if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("xsd_save_default")) {
                                 let t = if self.error.is_empty() { &self.output } else { &self.error };
                                 let _ = std::fs::write(path, t);
                             }
@@ -238,16 +248,22 @@ impl Tool for XmlTester {
             egui::pos2(total.min.x, cheat_y),
             egui::vec2(w, cheat_h),
         );
+        let lbl_cheatsheet = tr!("xsd_cheatsheet");
+        let lbl_element = tr!("xsd_element");
+        let lbl_simple_types = tr!("xsd_simple_types");
+        let lbl_compositors = tr!("xsd_compositors");
+        let lbl_attributes = tr!("xsd_attributes");
+        let lbl_structure = tr!("xsd_structure");
         ui.scope_builder(egui::UiBuilder::new().max_rect(cheat_rect), |ui| {
             ui.group(|ui| {
-                ui.label(egui::RichText::new("XSD Cheat sheet").strong());
+                ui.label(egui::RichText::new(&lbl_cheatsheet).strong());
                 ui.separator();
 
                 egui::ScrollArea::vertical()
                     .id_salt("xsd_cheatsheet_scroll")
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        ui.label(egui::RichText::new("Element").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_element).underline().strong());
                         ui.add_space(2.0);
                         egui::Grid::new("xsd_elements")
                             .num_columns(2)
@@ -268,7 +284,7 @@ impl Tool for XmlTester {
                             });
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Simple types").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_simple_types).underline().strong());
                         ui.add_space(2.0);
                         egui::Grid::new("xsd_types")
                             .num_columns(2)
@@ -299,7 +315,7 @@ impl Tool for XmlTester {
                             });
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Compositors").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_compositors).underline().strong());
                         ui.add_space(2.0);
                         egui::Grid::new("xsd_compositors")
                             .num_columns(2)
@@ -319,7 +335,7 @@ impl Tool for XmlTester {
                             });
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Attributes").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_attributes).underline().strong());
                         ui.add_space(2.0);
                         egui::Grid::new("xsd_attrs")
                             .num_columns(2)
@@ -339,7 +355,7 @@ impl Tool for XmlTester {
                             });
 
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("Structure").underline().strong());
+                        ui.label(egui::RichText::new(&lbl_structure).underline().strong());
                         ui.add_space(2.0);
                         egui::Grid::new("xsd_structure")
                             .num_columns(2)
@@ -377,7 +393,7 @@ fn check_well_formed(xml: &str) -> Result<(), String> {
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Eof) => return Ok(()),
-            Err(e) => return Err(format!("XML is not well-formed at position {}: {}", reader.buffer_position(), e)),
+            Err(e) => return Err(tr!("xsd_xml_not_well_formed", reader.buffer_position(), e)),
             _ => {}
         }
         buf.clear();
@@ -392,15 +408,12 @@ struct XsdSchema {
 }
 
 struct XsdElement {
-    element_type: Option<String>,
     children: Vec<(String, u32, u32)>, // (name, min, max)  max=u32::MAX for unbounded
     attributes: Vec<XsdAttribute>,
-    simple_type: Option<String>,
 }
 
 struct XsdAttribute {
     name: String,
-    attr_type: Option<String>,
     use_required: bool,
 }
 
@@ -421,10 +434,7 @@ fn parse_xsd(xsd: &str) -> Result<XsdSchema, String> {
     let mut current_type_name = String::new();
     let mut current_children: Vec<(String, u32, u32)> = Vec::new();
     let mut current_attrs: Vec<XsdAttribute> = Vec::new();
-    let mut current_simple_type: Option<String> = None;
     let mut in_element_def = false;
-    let mut in_simple_type = false;
-    let mut enum_values: Vec<String> = Vec::new();
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -434,7 +444,6 @@ fn parse_xsd(xsd: &str) -> Result<XsdSchema, String> {
                 match tag_name.as_str() {
                     "xs:element" | "xsd:element" | "element" => {
                         let mut name = String::new();
-                        let mut type_name = String::new();
                         let mut min_occurs: u32 = 1;
                         let mut max_occurs: u32 = 1;
                         for attr in e.attributes().flatten() {
@@ -442,7 +451,6 @@ fn parse_xsd(xsd: &str) -> Result<XsdSchema, String> {
                             let val = String::from_utf8_lossy(&attr.value);
                             match key.as_ref() {
                                 "name" => name = val.to_string(),
-                                "type" => type_name = val.to_string(),
                                 "minOccurs" => {
                                     min_occurs = val.parse().unwrap_or(1);
                                 }
@@ -465,7 +473,6 @@ fn parse_xsd(xsd: &str) -> Result<XsdSchema, String> {
                             current_type_name = name;
                             current_children.clear();
                             current_attrs.clear();
-                            current_simple_type = if type_name.is_empty() { None } else { Some(type_name) };
                         }
 
                         // If it's a self-closing element (Empty event), handle immediately
@@ -487,24 +494,19 @@ fn parse_xsd(xsd: &str) -> Result<XsdSchema, String> {
                             current_type_name = name;
                             current_children.clear();
                             current_attrs.clear();
-                            current_simple_type = None;
                         }
                     }
-                    "xs:simpleType" | "xsd:simpleType" | "simpleType" => {
-                        in_simple_type = true;
-                        enum_values.clear();
-                    }
+                    "xs:simpleType" | "xsd:simpleType" | "simpleType" => {}
+                    "xs:enumeration" | "xsd:enumeration" | "enumeration" => {}
                     "xs:restriction" | "xsd:restriction" | "restriction" => {}
                     "xs:attribute" | "xsd:attribute" | "attribute" => {
                         let mut name = String::new();
-                        let mut attr_type = String::new();
                         let mut use_val = String::new();
                         for attr in e.attributes().flatten() {
                             let key = String::from_utf8_lossy(attr.key.as_ref());
                             let val = String::from_utf8_lossy(&attr.value);
                             match key.as_ref() {
                                 "name" => name = val.to_string(),
-                                "type" => attr_type = val.to_string(),
                                 "use" => use_val = val.to_string(),
                                 _ => {}
                             }
@@ -512,16 +514,8 @@ fn parse_xsd(xsd: &str) -> Result<XsdSchema, String> {
                         if !name.is_empty() {
                             current_attrs.push(XsdAttribute {
                                 name,
-                                attr_type: if attr_type.is_empty() { None } else { Some(attr_type) },
                                 use_required: use_val == "required",
                             });
-                        }
-                    }
-                    "xs:enumeration" | "xsd:enumeration" | "enumeration" => {
-                        for attr in e.attributes().flatten() {
-                            if attr.key.as_ref() == b"value" {
-                                enum_values.push(String::from_utf8_lossy(&attr.value).to_string());
-                            }
                         }
                     }
                     _ => {}
@@ -534,14 +528,8 @@ fn parse_xsd(xsd: &str) -> Result<XsdSchema, String> {
                         if in_element_def && element_stack.is_empty() {
                             // End of root element definition
                             let elem = XsdElement {
-                                element_type: current_simple_type.take(),
                                 children: std::mem::take(&mut current_children),
                                 attributes: std::mem::take(&mut current_attrs),
-                                simple_type: if in_simple_type && !enum_values.is_empty() {
-                                    Some(format!("enum: {}", enum_values.join(", ")))
-                                } else {
-                                    None
-                                },
                             };
                             elements.insert(current_type_name.clone(), elem);
                             in_element_def = false;
@@ -552,10 +540,8 @@ fn parse_xsd(xsd: &str) -> Result<XsdSchema, String> {
                             // Named complex type ended
                             if let Some(name) = element_stack.pop() {
                                 let elem = XsdElement {
-                                    element_type: current_simple_type.take(),
                                     children: std::mem::take(&mut current_children),
                                     attributes: std::mem::take(&mut current_attrs),
-                                    simple_type: None,
                                 };
                                 elements.insert(current_type_name.clone(), elem);
                                 current_type_name = name;
@@ -563,14 +549,12 @@ fn parse_xsd(xsd: &str) -> Result<XsdSchema, String> {
                             type_stack.pop();
                         }
                     }
-                    "xs:simpleType" | "xsd:simpleType" | "simpleType" => {
-                        in_simple_type = false;
-                    }
+                    "xs:simpleType" | "xsd:simpleType" | "simpleType" => {}
                     "xs:restriction" | "xsd:restriction" | "restriction" => {}
                     _ => {}
                 }
             }
-            Err(e) => return Err(format!("XSD parse error at position {}: {}", reader.buffer_position(), e)),
+            Err(e) => return Err(tr!("xsd_parse_error_at_pos", reader.buffer_position(), e)),
             _ => {}
         }
         buf.clear();
@@ -600,10 +584,7 @@ fn validate_against_xsd(xml: &str, xsd: &XsdSchema) -> ValidationResult {
                 if element_stack.is_empty() {
                     // Root element
                     if tag != xsd.root_element {
-                        return ValidationResult::Invalid(format!(
-                            "Expected root element '{}' but found '{}' (pos {})",
-                            xsd.root_element, tag, line
-                        ));
+                        return ValidationResult::Invalid(tr!("xsd_expected_root", xsd.root_element, tag, line));
                     }
                 } else {
                     // Child element - validate against parent's definition
@@ -611,19 +592,13 @@ fn validate_against_xsd(xml: &str, xsd: &XsdSchema) -> ValidationResult {
                     if let Some(parent_def) = xsd.elements.get(&parent) {
                         let valid_child = parent_def.children.iter().find(|(name, _, _)| *name == tag);
                         if valid_child.is_none() && !parent_def.children.is_empty() {
-                            errors.push(format!(
-                                "Element '{}' is not a valid child of '{}' (pos {})",
-                                tag, parent, line
-                            ));
-                        } else if let Some((_, min, max)) = valid_child {
+                            errors.push(tr!("xsd_invalid_child", tag, parent, line));
+                        } else if let Some((_, _min, max)) = valid_child {
                             let key = (parent.clone(), tag.clone());
                             let count = child_count.entry(key).or_insert(0);
                             *count += 1;
                             if *count > *max && *max != u32::MAX {
-                                errors.push(format!(
-                                    "Element '{}' occurs {} times in '{}', max is {} (pos {})",
-                                    tag, count, parent, max, line
-                                ));
+                                errors.push(tr!("xsd_max_exceeded", tag, count, parent, max, line));
                             }
                         }
                     }
@@ -636,19 +611,13 @@ fn validate_against_xsd(xml: &str, xsd: &XsdSchema) -> ValidationResult {
                             seen_attrs.push(attr_name.clone());
                             let defined = elem_def.attributes.iter().find(|a| a.name == attr_name);
                             if defined.is_none() && !elem_def.attributes.is_empty() {
-                                warnings.push(format!(
-                                    "Attribute '{}' on element '{}' is not defined in XSD (pos {})",
-                                    attr_name, tag, line
-                                ));
+                                warnings.push(tr!("xsd_undefined_attr", attr_name, tag, line));
                             }
                         }
                         // Check required attributes
                         for attr_def in &elem_def.attributes {
                             if attr_def.use_required && !seen_attrs.contains(&attr_def.name) {
-                                errors.push(format!(
-                                    "Required attribute '{}' is missing on element '{}' (pos {})",
-                                    attr_def.name, tag, line
-                                ));
+                                errors.push(tr!("xsd_missing_required_attr", attr_def.name, tag, line));
                             }
                         }
                     }
@@ -659,7 +628,7 @@ fn validate_against_xsd(xml: &str, xsd: &XsdSchema) -> ValidationResult {
                 element_stack.pop();
             }
             Err(e) => {
-                return ValidationResult::Invalid(format!("XML error at position {}: {}", reader.buffer_position(), e));
+                return ValidationResult::Invalid(tr!("xsd_xml_error_at_pos", reader.buffer_position(), e));
             }
             _ => {}
         }
@@ -671,10 +640,7 @@ fn validate_against_xsd(xml: &str, xsd: &XsdSchema) -> ValidationResult {
         if let Some(parent_def) = xsd.elements.get(parent) {
             if let Some((_, min, _)) = parent_def.children.iter().find(|(name, _, _)| *name == *child) {
                 if count < min && *min > 0 {
-                    warnings.push(format!(
-                        "Element '{}' in '{}' occurs {} times, minimum is {}",
-                        child, parent, count, min
-                    ));
+                    warnings.push(tr!("xsd_min_not_met", child, parent, count, min));
                 }
             }
         }

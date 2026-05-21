@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 
@@ -43,14 +44,15 @@ impl Default for TextComparer {
 }
 
 impl Tool for TextComparer {
-    fn name(&self) -> &str { "Text Comparer" }
-    fn description(&self) -> &str { "Compare two texts and highlight differences" }
+    fn name(&self) -> String { tr!("tc_name") }
+    fn description(&self) -> String { tr!("tc_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Text }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let err_reading = tr!("err_error_reading");
         // Poll async file read results
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&err_reading) {
                 if self.text_a.is_empty() {
                     self.text_a = text;
                 } else {
@@ -84,29 +86,37 @@ impl Tool for TextComparer {
             }
         }
 
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_text_a = tr!("tc_text_a");
+        let lbl_text_b = tr!("tc_text_b");
+
         // Input columns
         ui.columns(2, |cols| {
             // --- Text A ---
-            cols[0].label(egui::RichText::new("Text A").strong());
+            cols[0].label(egui::RichText::new(&lbl_text_a).strong());
             cols[0].horizontal_wrapped(|ui| {
-                if ui.button("Paste").clicked() {
+                if ui.button(&lbl_paste).clicked() {
                     match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                         Ok(text) => self.text_a = text,
-                        Err(e) => { self.diff_result = vec![DiffLine { line: format!("Clipboard error: {}", e), kind: DiffKind::Removed }]; }
+                        Err(e) => { self.diff_result = vec![DiffLine { line: tr!("err_clipboard", e), kind: DiffKind::Removed }]; }
                     }
                 }
-                if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open text A", "Text", &["txt"]);
+                if ui.button(&lbl_open).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("tc_open_a"), &tr!("save_filter_text"), &["txt"]);
                 }
-                if ui.button("Clear").clicked() {
+                if ui.button(&lbl_clear).clicked() {
                     self.text_a.clear();
                     self.diff_result.clear();
                 }
-                if ui.button("Copy").clicked() && !self.text_a.is_empty() {
+                if ui.button(&lbl_copy).clicked() && !self.text_a.is_empty() {
                     ui.ctx().copy_text(self.text_a.clone());
                 }
-                if ui.button("Save As...").clicked() && !self.text_a.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "text_a.txt") {
+                if ui.button(&lbl_save_as).clicked() && !self.text_a.is_empty() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("tc_save_a")) {
                         let _ = std::fs::write(path, &self.text_a);
                     }
                 }
@@ -124,26 +134,26 @@ impl Tool for TextComparer {
                 });
 
             // --- Text B ---
-            cols[1].label(egui::RichText::new("Text B").strong());
+            cols[1].label(egui::RichText::new(&lbl_text_b).strong());
             cols[1].horizontal_wrapped(|ui| {
-                if ui.button("Paste").clicked() {
+                if ui.button(&lbl_paste).clicked() {
                     match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                         Ok(text) => self.text_b = text,
-                        Err(e) => { self.diff_result = vec![DiffLine { line: format!("Clipboard error: {}", e), kind: DiffKind::Added }]; }
+                        Err(e) => { self.diff_result = vec![DiffLine { line: tr!("err_clipboard", e), kind: DiffKind::Added }]; }
                     }
                 }
-                if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open text B", "Text", &["txt"]);
+                if ui.button(&lbl_open).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("tc_open_b"), &tr!("save_filter_text"), &["txt"]);
                 }
-                if ui.button("Clear").clicked() {
+                if ui.button(&lbl_clear).clicked() {
                     self.text_b.clear();
                     self.diff_result.clear();
                 }
-                if ui.button("Copy").clicked() && !self.text_b.is_empty() {
+                if ui.button(&lbl_copy).clicked() && !self.text_b.is_empty() {
                     ui.ctx().copy_text(self.text_b.clone());
                 }
-                if ui.button("Save As...").clicked() && !self.text_b.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "text_b.txt") {
+                if ui.button(&lbl_save_as).clicked() && !self.text_b.is_empty() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("tc_save_b")) {
                         let _ = std::fs::write(path, &self.text_b);
                     }
                 }
@@ -164,12 +174,15 @@ impl Tool for TextComparer {
         ui.add_space(8.0);
 
         // Show computing indicator
+        let lbl_computing = tr!("tc_computing");
         if self.pending_diff.is_pending() {
-            ui.label(egui::RichText::new("Computing diff...").italics().color(egui::Color32::from_rgb(100, 100, 200)));
+            ui.label(egui::RichText::new(&lbl_computing).italics().color(egui::Color32::from_rgb(100, 100, 200)));
         }
 
         // --- Diff Result ---
-        ui.label(egui::RichText::new("Diff Result").strong());
+        let lbl_diff_result = tr!("tc_diff_result");
+        let lbl_copy_diff = tr!("tc_copy_diff");
+        ui.label(egui::RichText::new(&lbl_diff_result).strong());
         ui.add_space(2.0);
 
         egui::ScrollArea::vertical()
@@ -189,12 +202,12 @@ impl Tool for TextComparer {
         if !self.diff_result.is_empty() {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
-                if ui.button("Copy Diff").clicked() {
+                if ui.button(&lbl_copy_diff).clicked() {
                     ui.ctx().copy_text(self.format_diff());
                 }
-                if ui.button("Save As...").clicked() {
+                if ui.button(&lbl_save_as).clicked() {
                     let text = self.format_diff();
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "diff_result.txt") {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("tc_save_diff")) {
                         let _ = std::fs::write(path, text);
                     }
                 }

@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use image::{GenericImageView, ImageEncoder};
 
 const FORMATS: &[(&str, &str)] = &[
@@ -79,17 +80,21 @@ impl ImageConverter {
                 self.texture = None;
 
                 let file_size = std::fs::metadata(&path)
-                    .map(|m| format!("{:.1} KB", m.len() as f64 / 1024.0))
-                    .unwrap_or_else(|_| "Unknown".to_string());
+                    .map(|m| tr!("ic_size_kb", m.len() as f64 / 1024.0))
+                    .unwrap_or_else(|_| tr!("pktype_unknown"));
 
-                self.source_info = format!(
-                    "File: {}\nSize: {}\nDimensions: {} x {} px\nColor: {:?}",
+                let color_str = format!("{:?}", img.color());
+                self.source_info = tr!(
+                    "ic_file_info",
                     path.file_name().unwrap_or_default().to_string_lossy(),
-                    file_size, w, h, img.color(),
+                    file_size,
+                    w,
+                    h,
+                    color_str
                 );
             }
             Err(e) => {
-                self.error = format!("Failed to open image: {}", e);
+                self.error = tr!("cb_failed_open", e);
                 self.loaded = false;
             }
         }
@@ -135,7 +140,9 @@ impl ImageConverter {
         let h = if self.resize_enabled { self.target_height } else { self.img_height };
 
         let (name, ext) = FORMATS[self.format_index];
-        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save image as", name, &[ext], &format!("output.{}", ext)) {
+        let save_title = tr!("ic_save_title");
+        let default_filename = format!("output.{}", ext);
+        if let Some(path) = crate::tools::async_utils::save_file_dialog(&save_title, name, &[ext], &default_filename) {
             let img = image::RgbaImage::from_raw(w, h, pixels).unwrap();
 
             let result = if ext == "jpg" {
@@ -146,7 +153,7 @@ impl ImageConverter {
                 if encoder.write_image(rgb_img.as_raw(), w, h, image::ColorType::Rgb8.into()).is_ok() {
                     std::fs::write(&path, buf).map_err(|e| e.to_string())
                 } else {
-                    Err("JPEG encoding failed".to_string())
+                    Err(tr!("ic_jpeg_failed"))
                 }
             } else {
                 img.save(&path).map_err(|e| e.to_string())
@@ -155,12 +162,12 @@ impl ImageConverter {
             match result {
                 Ok(_) => {
                     let size = std::fs::metadata(&path)
-                        .map(|m| format!("{:.1} KB", m.len() as f64 / 1024.0))
+                        .map(|m| tr!("ic_size_kb", m.len() as f64 / 1024.0))
                         .unwrap_or_default();
-                    self.status = format!("Saved: {} ({})", path.file_name().unwrap_or_default().to_string_lossy(), size);
+                    self.status = tr!("ic_saved", path.file_name().unwrap_or_default().to_string_lossy(), size);
                 }
                 Err(e) => {
-                    self.error = format!("Save failed: {}", e);
+                    self.error = tr!("ic_save_failed", e);
                 }
             }
         }
@@ -182,18 +189,22 @@ impl ImageConverter {
 }
 
 impl Tool for ImageConverter {
-    fn name(&self) -> &str { "Image Converter" }
-    fn description(&self) -> &str { "Convert, resize, and compress images between formats" }
+    fn name(&self) -> String { tr!("ic_name") }
+    fn description(&self) -> String { tr!("ic_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Graphic }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         // Load section
         ui.horizontal(|ui| {
-            if ui.button("Open Image...").clicked() {
+            let lbl_open = tr!("btn_open_file");
+            if ui.button(lbl_open).clicked() {
+                let title = tr!("ic_open_title");
+                let filter_image = tr!("cb_filter_image");
+                let filter_all = tr!("save_filter_all");
                 if let Some(path) = rfd::FileDialog::new()
-                    .set_title("Open image")
-                    .add_filter("Image", &["png", "jpg", "jpeg", "bmp", "gif", "webp"])
-                    .add_filter("All files", &["*"])
+                    .set_title(&title)
+                    .add_filter(&filter_image, &["png", "jpg", "jpeg", "bmp", "gif", "webp"])
+                    .add_filter(&filter_all, &["*"])
                     .pick_file()
                 {
                     self.load_image(path);
@@ -219,7 +230,7 @@ impl Tool for ImageConverter {
         // Source info
         ui.add_space(4.0);
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Source").strong());
+            ui.label(egui::RichText::new(tr!("ic_source")).strong());
             ui.label(&self.source_info);
         });
 
@@ -244,12 +255,12 @@ impl Tool for ImageConverter {
         // Output settings
         ui.add_space(8.0);
         ui.group(|ui| {
-            ui.label(egui::RichText::new("Output Settings").strong());
+            ui.label(egui::RichText::new(tr!("ic_output_settings")).strong());
             ui.add_space(4.0);
 
             // Format
             ui.horizontal(|ui| {
-                ui.label("Format:");
+                ui.label(tr!("label_format"));
                 egui::ComboBox::from_id_salt("img_format")
                     .selected_text(FORMATS[self.format_index].0)
                     .show_ui(ui, |ui| {
@@ -261,35 +272,37 @@ impl Tool for ImageConverter {
             ui.add_space(4.0);
 
             // Resize
-            ui.checkbox(&mut self.resize_enabled, "Resize");
+            let lbl_resize = tr!("ic_resize");
+            ui.checkbox(&mut self.resize_enabled, &lbl_resize);
             if self.resize_enabled {
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
-                    ui.label("Width:");
+                    ui.label(tr!("ic_width"));
                     if ui.add(egui::DragValue::new(&mut self.target_width).range(1..=16384).speed(1)).changed() {
                         if self.keep_aspect && self.img_width > 0 {
                             self.target_height = (self.target_width as f64 * self.img_height as f64 / self.img_width as f64) as u32;
                         }
                     }
-                    ui.label("px");
+                    ui.label(tr!("ic_px"));
                     ui.separator();
-                    ui.label("Height:");
+                    ui.label(tr!("ic_height"));
                     if ui.add(egui::DragValue::new(&mut self.target_height).range(1..=16384).speed(1)).changed() {
                         if self.keep_aspect && self.img_height > 0 {
                             self.target_width = (self.target_height as f64 * self.img_width as f64 / self.img_height as f64) as u32;
                         }
                     }
-                    ui.label("px");
+                    ui.label(tr!("ic_px"));
                 });
-                ui.checkbox(&mut self.keep_aspect, "Keep aspect ratio");
+                let lbl_keep = tr!("ic_keep_aspect");
+                ui.checkbox(&mut self.keep_aspect, &lbl_keep);
             }
 
             // JPEG quality
             if FORMATS[self.format_index].1 == "jpg" {
                 ui.add_space(4.0);
                 ui.horizontal(|ui| {
-                    ui.label("JPEG quality:");
-                    ui.add(egui::Slider::new(&mut self.jpeg_quality, 1..=100).suffix("%"));
+                    ui.label(tr!("ic_jpeg_quality"));
+                    ui.add(egui::Slider::new(&mut self.jpeg_quality, 1..=100).suffix(&tr!("ic_percent")));
                 });
             }
         });
@@ -297,11 +310,13 @@ impl Tool for ImageConverter {
         // Action buttons
         ui.add_space(8.0);
         ui.horizontal(|ui| {
-            if ui.button("Save As...").clicked() {
+            let lbl_save_as = tr!("btn_save_as");
+            if ui.button(lbl_save_as).clicked() {
                 self.save_image();
             }
             ui.separator();
-            if ui.button("Clear").clicked() {
+            let lbl_clear = tr!("btn_clear");
+            if ui.button(lbl_clear).clicked() {
                 self.clear_selection();
             }
         });

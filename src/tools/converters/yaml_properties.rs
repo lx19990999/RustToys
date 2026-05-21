@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async};
 
 pub struct YamlProperties {
@@ -23,20 +24,22 @@ impl Default for YamlProperties {
 }
 
 impl Tool for YamlProperties {
-    fn name(&self) -> &str { "YAML <> Properties" }
-    fn description(&self) -> &str { "Convert between YAML and .properties formats" }
+    fn name(&self) -> String { tr!("yp_name") }
+    fn description(&self) -> String { tr!("yp_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
         }
 
+        let label_yp_yaml_to_props = tr!("yp_yaml_to_props");
+        let label_yp_props_to_yaml = tr!("yp_props_to_yaml");
         ui.horizontal(|ui| {
-            ui.radio_value(&mut self.to_properties, true, "YAML → Properties");
-            ui.radio_value(&mut self.to_properties, false, "Properties → YAML");
+            ui.radio_value(&mut self.to_properties, true, &label_yp_yaml_to_props);
+            ui.radio_value(&mut self.to_properties, false, &label_yp_props_to_yaml);
         });
         ui.add_space(4.0);
 
@@ -46,19 +49,19 @@ impl Tool for YamlProperties {
         ui.columns(2, |cols| {
             // Left: Input panel
             cols[0].vertical(|ui| {
-                let input_label = if self.to_properties { "Input YAML:" } else { "Input Properties:" };
+                let input_label = if self.to_properties { tr!("yp_input_yaml") } else { tr!("yp_input_props") };
 
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
-                        open_file_async(&mut self.pending_file, "Open file", "Data", &["yaml", "yml", "properties"]);
+                    if ui.button(tr!("btn_open_file")).clicked() {
+                        open_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["yaml", "yml", "properties"]);
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
@@ -86,15 +89,15 @@ impl Tool for YamlProperties {
                     ui.add_space(4.0);
                 }
 
-                let output_label = if self.to_properties { "Output Properties:" } else { "Output YAML:" };
+                let output_label = if self.to_properties { tr!("yp_output_props") } else { tr!("yp_output_yaml") };
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
                         let ext = if self.to_properties { "properties" } else { "yaml" };
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", ext, &[ext], &format!("output.{}", ext)) {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), ext, &[ext], &tr!("default_output_txt", ext)) {
                             let _ = std::fs::write(path, &self.output);
                         }
                     }
@@ -135,12 +138,12 @@ impl YamlProperties {
         if self.to_properties {
             match yaml_text_to_properties(&self.input) {
                 Ok(s) => self.output = s,
-                Err(e) => self.error = format!("YAML parse error: {}", e),
+                Err(e) => self.error = tr!("yp_yaml_error", e),
             }
         } else {
             match properties_to_yaml(&self.input) {
                 Ok(s) => self.output = s,
-                Err(e) => self.error = format!("Properties parse error: {}", e),
+                Err(e) => self.error = tr!("yp_props_error", e),
             }
         }
     }

@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 
 pub struct Sidebar {
     pub search: String,
@@ -23,7 +24,7 @@ impl Sidebar {
 
         ui.add(
             egui::TextEdit::singleline(&mut self.search)
-                .hint_text("Search tools...")
+                .hint_text(tr!("search_tools"))
                 .desired_width(f32::INFINITY),
         );
         ui.separator();
@@ -32,7 +33,7 @@ impl Sidebar {
 
         egui::ScrollArea::vertical().show(ui, |ui| {
             for category in ToolCategory::all() {
-                let tools_in_cat: Vec<(usize, &str, &str)> = tools
+                let tools_in_cat: Vec<(usize, String, String)> = tools
                     .iter()
                     .enumerate()
                     .filter(|(_, t)| t.category() == *category)
@@ -55,18 +56,18 @@ impl Sidebar {
                     for (idx, name, desc) in tools_in_cat {
                         let selected = self.selected_tool == idx;
                         let response = if busy && !selected {
-                            ui.add_enabled(false, egui::SelectableLabel::new(false, name))
+                            ui.add_enabled(false, egui::SelectableLabel::new(false, &name))
                         } else {
-                            ui.selectable_label(selected, name)
+                            ui.selectable_label(selected, &name)
                         };
                         if !busy && response.clicked() {
                             self.selected_tool = idx;
                             self.selected_category = Some(*category);
                         }
                         response.on_hover_text(if busy && !selected {
-                            format!("{} (locked: current tool is busy)", desc)
+                            tr!("locked_hover", &desc)
                         } else {
-                            desc.to_string()
+                            desc
                         });
                     }
                 });

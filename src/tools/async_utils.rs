@@ -59,28 +59,6 @@ pub fn open_file_async(
     }
 }
 
-/// Same as open_file_async but with multiple filters.
-pub fn open_file_async_multi(
-    pending: &mut Pending<String>,
-    title: &str,
-    filters: &[(&str, &[&str])],
-) {
-    let mut dialog = rfd::FileDialog::new().set_title(title);
-    for (name, exts) in filters {
-        let exts_vec: Vec<&str> = exts.to_vec();
-        dialog = dialog.add_filter(*name, &exts_vec);
-    }
-    if let Some(path) = dialog.pick_file() {
-        let (tx, rx) = mpsc::channel();
-        pending.set_receiver(rx);
-        std::thread::spawn(move || {
-            match std::fs::read_to_string(&path) {
-                Ok(text) => { let _ = tx.send(text); }
-                Err(e) => { let _ = tx.send(format!("Error reading file: {}", e)); }
-            }
-        });
-    }
-}
 
 /// Config-aware save file dialog. Uses lastsavefolder from config as initial
 /// directory, and records the chosen path back to config.

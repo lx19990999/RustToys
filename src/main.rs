@@ -1,5 +1,6 @@
 mod app;
 mod config;
+mod i18n;
 mod sidebar;
 mod tool;
 mod tools;

@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async};
 use base64::Engine;
 
@@ -30,19 +31,21 @@ impl Default for Base64Image {
 
 
 impl Tool for Base64Image {
-    fn name(&self) -> &str { "Base64 Image Encoder / Decoder" }
-    fn description(&self) -> &str { "Encode images to Base64 or decode Base64 to view images" }
+    fn name(&self) -> String { tr!("b64i_name") }
+    fn description(&self) -> String { tr!("b64i_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
         }
+        let label_encode_mode = tr!("b64i_encode_mode");
+        let label_decode_mode = tr!("b64i_decode_mode");
         ui.horizontal(|ui| {
-            ui.radio_value(&mut self.encode_mode, true, "Encode (Image → Base64)");
-            ui.radio_value(&mut self.encode_mode, false, "Decode (Base64 → Image)");
+            ui.radio_value(&mut self.encode_mode, true, &label_encode_mode);
+            ui.radio_value(&mut self.encode_mode, false, &label_decode_mode);
         });
         ui.add_space(4.0);
 
@@ -54,11 +57,11 @@ impl Tool for Base64Image {
             cols[0].vertical(|ui| {
                 if self.encode_mode {
                     ui.horizontal(|ui| {
-                        if ui.button("Open Image...").clicked() {
+                        if ui.button(tr!("btn_open_image")).clicked() {
                             if let Some(path) = rfd::FileDialog::new()
-                                .set_title("Open image")
-                                .add_filter("Image", &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
-                                .add_filter("All files", &["*"])
+                                .set_title(&tr!("cb_open_title"))
+                                .add_filter(&tr!("cb_filter_image"), &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
+                                .add_filter(&tr!("save_filter_all"), &["*"])
                                 .pick_file()
                             {
                                 match std::fs::read(&path) {
@@ -68,11 +71,11 @@ impl Tool for Base64Image {
                                         self.output = base64::engine::general_purpose::STANDARD.encode(&bytes);
                                         self.error.clear();
                                     }
-                                    Err(e) => self.error = format!("File read error: {}", e),
+                                    Err(e) => self.error = tr!("err_file_read", e),
                                 }
                             }
                         }
-                        if ui.button("Clear").clicked() {
+                        if ui.button(tr!("btn_clear")).clicked() {
                             self.reset();
                         }
                     });
@@ -80,7 +83,7 @@ impl Tool for Base64Image {
 
                     // Show file path or preview
                     if !self.input.is_empty() {
-                        ui.label(format!("File: {}", self.input));
+                        ui.label(tr!("b64i_file_label", self.input));
                         ui.label(&self.image_info);
                     }
 
@@ -94,17 +97,17 @@ impl Tool for Base64Image {
                 } else {
                     // Decode mode
                     ui.horizontal(|ui| {
-                        if ui.button("Paste").clicked() {
+                        if ui.button(tr!("btn_paste")).clicked() {
                             match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                                 Ok(text) => {
                                     self.input = text;
                                     self.preview_texture = None;
                                     self.image_info.clear();
                                 }
-                                Err(e) => self.error = format!("Clipboard error: {}", e),
+                                Err(e) => self.error = tr!("err_clipboard", e),
                             }
                         }
-                        if ui.button("Paste Image").clicked() {
+                        if ui.button(tr!("btn_paste_image")).clicked() {
                             match arboard::Clipboard::new().and_then(|mut cb| cb.get_image()) {
                                 Ok(img) => {
                                     let rgba = img.bytes;
@@ -120,18 +123,18 @@ impl Tool for Base64Image {
                                     self.output = base64::engine::general_purpose::STANDARD.encode(&rgba);
                                     self.error.clear();
                                 }
-                                Err(e) => self.error = format!("Clipboard image error: {}", e),
+                                Err(e) => self.error = tr!("err_clipboard_image", e),
                             }
                         }
-                        if ui.button("Open File...").clicked() {
-                            open_file_async(&mut self.pending_file, "Open text file", "Text", &["txt"]);
+                        if ui.button(tr!("btn_open_file")).clicked() {
+                            open_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"]);
                         }
-                        if ui.button("Clear").clicked() {
+                        if ui.button(tr!("btn_clear")).clicked() {
                             self.reset();
                         }
                     });
                     ui.add_space(2.0);
-                    ui.label("Base64 Input:");
+                    ui.label(tr!("b64i_base64_input"));
 
                     egui::ScrollArea::vertical()
                         .id_salt("b64img_input_scroll")
@@ -155,14 +158,14 @@ impl Tool for Base64Image {
                 }
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.output.is_empty() {
-                        let default_name = if self.encode_mode { "output.txt" } else { "output.png" };
-                        let filter_name = if self.encode_mode { "Text" } else { "PNG" };
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
+                        let default_name = if self.encode_mode { tr!("default_output_txt") } else { "output.png".to_string() };
+                        let filter_name = if self.encode_mode { tr!("save_filter_text") } else { "PNG".to_string() };
                         let exts: &[&str] = if self.encode_mode { &["txt"] } else { &["png"] };
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", filter_name, exts, default_name) {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &filter_name, exts, &default_name) {
                             if self.encode_mode {
                                 let _ = std::fs::write(path, &self.output);
                             } else {
@@ -177,7 +180,7 @@ impl Tool for Base64Image {
                 ui.add_space(2.0);
 
                 if self.encode_mode {
-                    ui.label("Base64 Output:");
+                    ui.label(tr!("b64i_base64_output"));
                     egui::ScrollArea::vertical()
                         .id_salt("b64img_output_scroll")
                         .auto_shrink([false, false])
@@ -245,7 +248,7 @@ impl Base64Image {
             Ok(img) => {
                 let rgba = img.to_rgba8();
                 let (w, h) = rgba.dimensions();
-                self.image_info = format!("{}x{} ({:.1} KB)", w, h, bytes.len() as f64 / 1024.0);
+                self.image_info = tr!("b64i_image_info", w, h, bytes.len() as f64 / 1024.0);
                 let color_img = egui::ColorImage::from_rgba_unmultiplied(
                     [w as usize, h as usize], &rgba,
                 );
@@ -254,7 +257,7 @@ impl Base64Image {
                 ));
             }
             Err(e) => {
-                self.image_info = format!("({:.1} KB, cannot preview: {})", bytes.len() as f64 / 1024.0, e);
+                self.image_info = tr!("b64i_cannot_preview", bytes.len() as f64 / 1024.0, e);
                 self.preview_texture = None;
             }
         }
@@ -272,11 +275,11 @@ impl Base64Image {
         let cleaned = self.clean_base64(&self.input);
         match base64::engine::general_purpose::STANDARD.decode(cleaned.as_bytes()) {
             Ok(bytes) => {
-                self.output = format!("Decoded {} bytes", bytes.len());
+                self.output = tr!("b64i_decoded_bytes", bytes.len());
                 self.load_preview(&bytes, ui.ctx());
             }
             Err(e) => {
-                self.error = format!("Base64 decode error: {}", e);
+                self.error = tr!("b64i_decode_error", e);
                 self.preview_texture = None;
                 self.image_info.clear();
             }

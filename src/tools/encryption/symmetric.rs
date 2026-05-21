@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 use aes::cipher::{BlockEncrypt, BlockDecrypt, KeyInit, generic_array::GenericArray};
@@ -58,19 +59,20 @@ impl Default for SymmetricEncryption {
 }
 
 impl Tool for SymmetricEncryption {
-    fn name(&self) -> &str { "对称加密 (AES / DES)" }
-    fn description(&self) -> &str { "AES and DES encryption/decryption using CBC mode" }
+    fn name(&self) -> String { tr!("sym_name") }
+    fn description(&self) -> String { tr!("sym_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Encryption }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            let err_prefix = tr!("err_error_reading");
+            if !text.starts_with(&err_prefix) {
                 self.input = text;
             }
         }
 
         ui.horizontal(|ui| {
-            ui.label("Algorithm:");
+            ui.label(tr!("label_algorithm"));
             let alg_label = self.algorithm.label();
             egui::ComboBox::from_id_salt("sym_alg")
                 .selected_text(alg_label)
@@ -81,17 +83,19 @@ impl Tool for SymmetricEncryption {
                     ui.selectable_value(&mut self.algorithm, Algorithm::Des, "DES");
                 });
             ui.separator();
-            ui.radio_value(&mut self.encrypt, true, "Encrypt");
-            ui.radio_value(&mut self.encrypt, false, "Decrypt");
+            let label_encrypt = tr!("label_encrypt");
+            let label_decrypt = tr!("label_decrypt");
+            ui.radio_value(&mut self.encrypt, true, &label_encrypt);
+            ui.radio_value(&mut self.encrypt, false, &label_decrypt);
         });
         ui.add_space(2.0);
 
         ui.horizontal(|ui| {
-            ui.label("Key:");
+            ui.label(tr!("label_key"));
             ui.add(egui::TextEdit::singleline(&mut self.key).desired_width(f32::INFINITY).font(egui::TextStyle::Monospace));
         });
         ui.horizontal(|ui| {
-            ui.label("IV: ");
+            ui.label(tr!("label_iv"));
             ui.add(egui::TextEdit::singleline(&mut self.iv).desired_width(f32::INFINITY).font(egui::TextStyle::Monospace));
         });
         ui.add_space(4.0);
@@ -104,18 +108,18 @@ impl Tool for SymmetricEncryption {
 
         ui.columns(2, |cols| {
             cols[0].vertical(|ui| {
-                let input_label = if self.encrypt { "Input (plain text):" } else { "Input (Base64):" };
+                let input_label = if self.encrypt { tr!("sym_input_plain") } else { tr!("sym_input_b64") };
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
+                    if ui.button(tr!("btn_open_file")).clicked() {
                         open_file_async(&mut self.pending_file, "Open file", "All", &["*"]);
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
@@ -135,13 +139,13 @@ impl Tool for SymmetricEncryption {
                     ui.colored_label(egui::Color32::RED, &self.error);
                     ui.add_space(4.0);
                 }
-                let output_label = if self.encrypt { "Output (Base64):" } else { "Output (plain text):" };
+                let output_label = if self.encrypt { tr!("sym_output_b64") } else { tr!("sym_output_plain") };
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "output.txt") {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "Text", &["txt"], &tr!("default_output_txt")) {
                             let _ = std::fs::write(path, &self.output);
                         }
                     }
@@ -179,11 +183,11 @@ impl SymmetricEncryption {
         let expected_key = self.algorithm.key_len();
 
         if key_bytes.len() > expected_key {
-            self.error = format!("Key too long (max {} bytes for {})", expected_key, self.algorithm.label());
+            self.error = tr!("sym_key_too_long", expected_key, self.algorithm.label());
             return;
         }
         if iv_bytes.len() > 16 {
-            self.error = "IV too long (max 16 bytes)".to_string();
+            self.error = tr!("sym_iv_too_long");
             return;
         }
 

@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use rand::Rng;
 
 // Classic Lorem Ipsum word set
@@ -187,8 +188,8 @@ impl LoremIpsum {
 }
 
 impl Tool for LoremIpsum {
-    fn name(&self) -> &str { "Lorem Ipsum Generator" }
-    fn description(&self) -> &str { "Generate words, sentences or paragraphs of Lorem Ipsum" }
+    fn name(&self) -> String { tr!("lorem_name") }
+    fn description(&self) -> String { tr!("lorem_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Generators }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
@@ -198,16 +199,19 @@ impl Tool for LoremIpsum {
         }
 
         // Generation type
+        let lbl_paragraphs = tr!("lorem_paragraphs");
+        let lbl_sentences = tr!("lorem_sentences");
+        let lbl_words = tr!("lorem_words");
         ui.horizontal(|ui| {
-            ui.radio_value(&mut self.mode, 0, "Paragraphs");
-            ui.radio_value(&mut self.mode, 1, "Sentences");
-            ui.radio_value(&mut self.mode, 2, "Words");
+            ui.radio_value(&mut self.mode, 0, &lbl_paragraphs);
+            ui.radio_value(&mut self.mode, 1, &lbl_sentences);
+            ui.radio_value(&mut self.mode, 2, &lbl_words);
         });
         ui.add_space(4.0);
 
         // Text library selection
         ui.horizontal(|ui| {
-            ui.label("Text Library:");
+            ui.label(tr!("lorem_text_lib"));
             egui::ComboBox::from_id_salt("lorem_library")
                 .selected_text(TEXT_LIBRARIES[self.library].0)
                 .show_ui(ui, |ui| {
@@ -221,19 +225,20 @@ impl Tool for LoremIpsum {
         // Count
         ui.horizontal(|ui| {
             let label = match self.mode {
-                0 => "Paragraphs:",
-                1 => "Sentences:",
-                2 => "Words:",
-                _ => "Count:",
+                0 => tr!("lorem_paragraphs_count"),
+                1 => tr!("lorem_sentences_count"),
+                2 => tr!("lorem_words_count"),
+                _ => tr!("label_count"),
             };
-            ui.label(label);
+            ui.label(&label);
             ui.add(egui::DragValue::new(&mut self.count).range(1..=100).speed(1));
         });
         ui.add_space(4.0);
 
         // Start with classic option (only for Classic Lorem library)
         if self.library == 0 {
-            ui.checkbox(&mut self.start_with_classic, "Start with \"Lorem ipsum dolor sit amet...\"");
+            let lbl_lorem = tr!("lorem_start_lorem");
+            ui.checkbox(&mut self.start_with_classic, &lbl_lorem);
             ui.add_space(4.0);
         } else {
             self.start_with_classic = false;
@@ -241,17 +246,19 @@ impl Tool for LoremIpsum {
 
         // Action buttons
         ui.horizontal(|ui| {
-            if ui.button("Generate").clicked() {
+            let lbl_generate = tr!("btn_generate");
+            if ui.button(lbl_generate).clicked() {
                 self.generate();
             }
-            if ui.button("Refresh").clicked() {
+            let lbl_refresh = tr!("btn_refresh");
+            if ui.button(lbl_refresh).clicked() {
                 self.generate();
             }
         });
         ui.add_space(4.0);
 
         // Output
-        ui.label("Output:");
+        ui.label(tr!("label_output"));
         ui.add(
             egui::TextEdit::multiline(&mut self.output)
                 .desired_width(f32::INFINITY)
@@ -261,11 +268,16 @@ impl Tool for LoremIpsum {
         // Output action buttons
         if !self.output.is_empty() {
             ui.horizontal(|ui| {
-                if ui.button("Copy").clicked() {
+                let lbl_copy = tr!("btn_copy");
+                if ui.button(lbl_copy).clicked() {
                     ui.ctx().copy_text(self.output.clone());
                 }
-                if ui.button("Save As...").clicked() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "lorem_ipsum.txt") {
+                let lbl_save_as = tr!("btn_save_as");
+                if ui.button(lbl_save_as).clicked() {
+                    let title = tr!("save_as_title");
+                    let filter_text = tr!("save_filter_text");
+                    let default_name = tr!("lorem_save_default");
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_text, &["txt"], &default_name) {
                         let _ = std::fs::write(path, &self.output);
                     }
                 }

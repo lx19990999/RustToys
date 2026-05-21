@@ -1,5 +1,6 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
+use crate::tr;
 use std::io::{Read, Write};
 use base64::Engine;
 
@@ -12,14 +13,16 @@ pub struct GZip {
 }
 
 impl Tool for GZip {
-    fn name(&self) -> &str { "GZip Compress / Decompress" }
-    fn description(&self) -> &str { "Compress or decompress text using GZip" }
+    fn name(&self) -> String { tr!("gzip_name") }
+    fn description(&self) -> String { tr!("gzip_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let label_compress = tr!("label_compress");
+        let label_decompress = tr!("label_decompress");
         ui.horizontal(|ui| {
-            ui.radio_value(&mut self.compress, true, "Compress");
-            ui.radio_value(&mut self.compress, false, "Decompress");
+            ui.radio_value(&mut self.compress, true, &label_compress);
+            ui.radio_value(&mut self.compress, false, &label_decompress);
         });
         ui.add_space(4.0);
 
@@ -30,16 +33,16 @@ impl Tool for GZip {
             // Left: Input
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
+                    if ui.button(tr!("btn_open_file")).clicked() {
                         if let Some(path) = rfd::FileDialog::new()
-                            .set_title("Open file")
-                            .add_filter("All files", &["*"])
+                            .set_title(&tr!("save_as_title"))
+                            .add_filter(&tr!("save_filter_all"), &["*"])
                             .pick_file()
                         {
                             match std::fs::read(&path) {
@@ -50,18 +53,18 @@ impl Tool for GZip {
                                         String::from_utf8_lossy(&bytes).to_string()
                                     };
                                 }
-                                Err(e) => self.error = format!("File read error: {}", e),
+                                Err(e) => self.error = tr!("err_file_read", e),
                             }
                         }
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("Input:");
+                ui.label(tr!("label_input"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("gzip_input_scroll")
@@ -83,18 +86,18 @@ impl Tool for GZip {
                 }
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Text", &["txt"], "output.txt") {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt")) {
                             let _ = std::fs::write(path, &self.output);
                         }
                     }
                 });
                 ui.add_space(2.0);
-                let out_label = if self.compress { "Compressed (Base64):" } else { "Decompressed text:" };
-                ui.label(out_label);
+                let out_label = if self.compress { tr!("gzip_compressed_label") } else { tr!("gzip_decompressed_label") };
+                ui.label(&out_label);
 
                 egui::ScrollArea::vertical()
                     .id_salt("gzip_output_scroll")
@@ -131,7 +134,7 @@ impl GZip {
                 }
                 Err(e) => {
                     self.output.clear();
-                    self.error = format!("Compress error: {}", e);
+                    self.error = tr!("gzip_compress_error", e);
                 }
             }
         } else {
@@ -143,12 +146,12 @@ impl GZip {
                     }
                     Err(e) => {
                         self.output.clear();
-                        self.error = format!("Decompress error: {}", e);
+                        self.error = tr!("gzip_decompress_error", e);
                     }
                 },
                 Err(e) => {
                     self.output.clear();
-                    self.error = format!("Base64 decode error: {}", e);
+                    self.error = tr!("gzip_b64_error", e);
                 }
             }
         }

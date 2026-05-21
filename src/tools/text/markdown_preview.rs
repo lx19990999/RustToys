@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 
@@ -21,13 +22,14 @@ impl Default for MarkdownPreview {
 }
 
 impl Tool for MarkdownPreview {
-    fn name(&self) -> &str { "Markdown Preview" }
-    fn description(&self) -> &str { "Preview a Markdown document with a GitHub-like render" }
+    fn name(&self) -> String { tr!("md_name") }
+    fn description(&self) -> String { tr!("md_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Text }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let err_reading = tr!("err_error_reading");
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            if !text.starts_with(&err_reading) {
                 self.input = text;
             }
         }
@@ -53,11 +55,14 @@ impl Tool for MarkdownPreview {
             total.min,
             egui::vec2(w, theme_h),
         );
+        let lbl_theme = tr!("md_theme_label");
+        let lbl_github_light = tr!("md_github_light");
+        let lbl_github_dark = tr!("md_github_dark");
         ui.scope_builder(egui::UiBuilder::new().max_rect(theme_rect), |ui| {
             ui.horizontal(|ui| {
-                ui.label("Theme:");
-                ui.radio_value(&mut self.theme, 0, "GitHub Light");
-                ui.radio_value(&mut self.theme, 1, "GitHub Dark");
+                ui.label(&lbl_theme);
+                ui.radio_value(&mut self.theme, 0, &lbl_github_light);
+                ui.radio_value(&mut self.theme, 1, &lbl_github_dark);
             });
         });
 
@@ -68,27 +73,36 @@ impl Tool for MarkdownPreview {
             egui::pos2(total.min.x, cols_y),
             egui::vec2(half_w, cols_h),
         );
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_markdown = tr!("md_markdown_label");
+        let lbl_preview = tr!("md_preview_label");
+        let lbl_copy_html = tr!("btn_copy_html");
+        let lbl_save_html = tr!("btn_save_html");
         ui.scope_builder(egui::UiBuilder::new().max_rect(left_rect), |ui| {
-            ui.label(egui::RichText::new("Markdown").strong());
+            ui.label(egui::RichText::new(&lbl_markdown).strong());
             ui.add_space(space);
             ui.horizontal_wrapped(|ui| {
-                if ui.button("Paste").clicked() {
+                if ui.button(&lbl_paste).clicked() {
                     match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                         Ok(text) => self.input = text,
-                        Err(e) => self.html_output = format!("Clipboard error: {}", e),
+                        Err(e) => self.html_output = tr!("err_clipboard", e),
                     }
                 }
-                if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open Markdown file", "Markdown", &["md", "markdown"]);
+                if ui.button(&lbl_open).clicked() {
+                    open_file_async(&mut self.pending_file, &tr!("md_open_title"), &tr!("md_filter_md"), &["md", "markdown"]);
                 }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(&lbl_clear).clicked() {
                     self.input.clear();
                 }
-                if ui.button("Copy").clicked() && !self.input.is_empty() {
+                if ui.button(&lbl_copy).clicked() && !self.input.is_empty() {
                     ui.ctx().copy_text(self.input.clone());
                 }
-                if ui.button("Save As...").clicked() && !self.input.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "Markdown", &["md"], "document.md") {
+                if ui.button(&lbl_save_as).clicked() && !self.input.is_empty() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("md_filter_md"), &["md"], &tr!("md_save_default")) {
                         let _ = std::fs::write(path, &self.input);
                     }
                 }
@@ -108,14 +122,14 @@ impl Tool for MarkdownPreview {
             egui::vec2(half_w, cols_h),
         );
         ui.scope_builder(egui::UiBuilder::new().max_rect(right_rect), |ui| {
-            ui.label(egui::RichText::new("Preview").strong());
+            ui.label(egui::RichText::new(&lbl_preview).strong());
             ui.add_space(space);
             ui.horizontal_wrapped(|ui| {
-                if ui.button("Copy HTML").clicked() && !self.html_output.is_empty() {
+                if ui.button(&lbl_copy_html).clicked() && !self.html_output.is_empty() {
                     ui.ctx().copy_text(self.html_output.clone());
                 }
-                if ui.button("Save HTML...").clicked() && !self.html_output.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "HTML", &["html"], "preview.html") {
+                if ui.button(&lbl_save_html).clicked() && !self.html_output.is_empty() {
+                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("md_filter_html"), &["html"], &tr!("md_save_html")) {
                         let _ = std::fs::write(path, &self.html_output);
                     }
                 }

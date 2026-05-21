@@ -1,4 +1,5 @@
 use eframe::egui;
+use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
 use regex::Regex;
@@ -29,16 +30,15 @@ impl Default for SqlFormatter {
     }
 }
 
-const DIALECTS: [&str; 4] = ["Standard", "MySQL", "PostgreSQL", "PL/SQL"];
-
 impl Tool for SqlFormatter {
-    fn name(&self) -> &str { "SQL Formatter" }
-    fn description(&self) -> &str { "Format SQL data" }
+    fn name(&self) -> String { tr!("sql_name") }
+    fn description(&self) -> String { tr!("sql_desc") }
     fn category(&self) -> ToolCategory { ToolCategory::Formatters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with("Error reading file:") {
+            let err_prefix = tr!("err_error_reading");
+            if !text.starts_with(&err_prefix) {
                 self.input = text;
             }
         }
@@ -52,16 +52,16 @@ impl Tool for SqlFormatter {
             // Left: Input
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
-                    if ui.button("Paste").clicked() {
+                    if ui.button(tr!("btn_paste")).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = format!("Clipboard error: {}", e),
+                            Err(e) => self.error = tr!("err_clipboard", e),
                         }
                     }
-                    if ui.button("Open File...").clicked() {
-                    open_file_async(&mut self.pending_file, "Open SQL file", "SQL", &["sql"]);
+                    if ui.button(tr!("btn_open_file")).clicked() {
+                        open_file_async(&mut self.pending_file, &tr!("sql_open_title"), "SQL", &["sql"]);
                     }
-                    if ui.button("Clear").clicked() {
+                    if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
@@ -70,24 +70,31 @@ impl Tool for SqlFormatter {
                 ui.add_space(2.0);
 
                 ui.horizontal(|ui| {
-                    ui.label("Language:");
+                    ui.label(tr!("sql_language"));
+                    let dialect_standard = tr!("sql_dialect_standard");
+                    let dialect_mysql = tr!("sql_dialect_mysql");
+                    let dialect_postgresql = tr!("sql_dialect_postgresql");
+                    let dialect_plsql = tr!("sql_dialect_plsql");
+                    let dialects = [&dialect_standard, &dialect_mysql, &dialect_postgresql, &dialect_plsql];
                     egui::ComboBox::from_id_salt("sql_dialect")
-                        .selected_text(DIALECTS[self.dialect])
+                        .selected_text(dialects[self.dialect].as_str())
                         .show_ui(ui, |ui| {
-                            for (i, name) in DIALECTS.iter().enumerate() {
-                                ui.selectable_value(&mut self.dialect, i, *name);
+                            for (i, name) in dialects.iter().enumerate() {
+                                ui.selectable_value(&mut self.dialect, i, name.as_str());
                             }
                         });
                     ui.separator();
-                    ui.label("Indent:");
+                    ui.label(tr!("label_indent"));
                     ui.add(egui::DragValue::new(&mut self.indent_size).range(1..=8).speed(1));
                 });
                 ui.horizontal(|ui| {
-                    ui.checkbox(&mut self.uppercase, "Uppercase keywords");
-                    ui.checkbox(&mut self.leading_comma, "Leading comma");
+                    let label_uppercase_kw = tr!("sql_uppercase_kw");
+                    ui.checkbox(&mut self.uppercase, &label_uppercase_kw);
+                    let label_leading_comma = tr!("sql_leading_comma");
+                    ui.checkbox(&mut self.leading_comma, &label_leading_comma);
                 });
                 ui.add_space(2.0);
-                ui.label("Input SQL:");
+                ui.label(tr!("sql_input_label"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("sql_input_scroll")
@@ -109,17 +116,17 @@ impl Tool for SqlFormatter {
                 }
 
                 ui.horizontal(|ui| {
-                    if ui.button("Copy").clicked() && !self.output.is_empty() {
+                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button("Save As...").clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog("Save as", "SQL", &["sql"], "formatted.sql") {
+                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
+                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "SQL", &["sql"], &tr!("sql_save_default")) {
                             let _ = std::fs::write(path, &self.output);
                         }
                     }
                 });
                 ui.add_space(2.0);
-                ui.label("Output:");
+                ui.label(tr!("label_output"));
 
                 egui::ScrollArea::vertical()
                     .id_salt("sql_output_scroll")
