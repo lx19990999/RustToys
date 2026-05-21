@@ -13,6 +13,7 @@ pub struct JsonPathTester {
     prev_path: String,
     match_count: usize,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for JsonPathTester {
@@ -26,6 +27,7 @@ impl Default for JsonPathTester {
             prev_path: String::new(),
             match_count: 0,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -82,6 +84,9 @@ impl Tool for JsonPathTester {
                 self.json_input = text;
                 self.error.clear();
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
 
         let total = ui.available_rect_before_wrap();
@@ -165,9 +170,7 @@ impl Tool for JsonPathTester {
                     ui.ctx().copy_text(self.output.clone());
                 }
                 if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("jp_json_label"), &["json"], &tr!("jp_save_default")) {
-                        let _ = std::fs::write(path, &self.output);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("jp_json_label"), &["json"], &tr!("jp_save_default"), self.output.clone());
                 }
             });
             ui.add_space(space);

@@ -11,6 +11,7 @@ pub struct RegexTester {
     prev_pattern: String,
     prev_test: String,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for RegexTester {
@@ -23,6 +24,7 @@ impl Default for RegexTester {
             prev_pattern: String::new(),
             prev_test: String::new(),
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -84,6 +86,9 @@ impl Tool for RegexTester {
                 self.test_string = text;
                 self.error.clear();
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
 
         let total = ui.available_rect_before_wrap();
@@ -156,9 +161,7 @@ impl Tool for RegexTester {
                     ui.ctx().copy_text(self.matches.clone());
                 }
                 if ui.button(&lbl_save_as).clicked() && !self.matches.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("rx_save_default")) {
-                        let _ = std::fs::write(path, &self.matches);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("rx_save_default"), self.matches.clone());
                 }
             });
             ui.add_space(space);

@@ -13,6 +13,7 @@ pub struct Base64Image {
     preview_texture: Option<egui::TextureHandle>,
     image_info: String,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for Base64Image {
@@ -25,6 +26,7 @@ impl Default for Base64Image {
             preview_texture: None,
             image_info: String::new(),
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -43,6 +45,9 @@ impl Tool for Base64Image {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         let label_encode_mode = tr!("b64i_encode_mode");
         let label_decode_mode = tr!("b64i_decode_mode");
@@ -162,17 +167,12 @@ impl Tool for Base64Image {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        let default_name = if self.encode_mode { tr!("default_output_txt") } else { "output.png".to_string() };
-                        let filter_name = if self.encode_mode { tr!("save_filter_text") } else { "PNG".to_string() };
-                        let exts: &[&str] = if self.encode_mode { &["txt"] } else { &["png"] };
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &filter_name, exts, &default_name) {
-                            if self.encode_mode {
-                                let _ = std::fs::write(path, &self.output);
-                            } else {
-                                let cleaned = self.clean_base64(&self.input);
-                                if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(cleaned.as_ref()) {
-                                    let _ = std::fs::write(path, &bytes);
-                                }
+                        if self.encode_mode {
+                            crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt"), self.output.clone());
+                        } else {
+                            let cleaned = self.clean_base64(&self.input);
+                            if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(cleaned.as_ref()) {
+                                crate::tools::async_utils::save_file_binary_async(&mut self.save_pending, &tr!("save_as_title"), "PNG", &["png"], "output.png", bytes);
                             }
                         }
                     }

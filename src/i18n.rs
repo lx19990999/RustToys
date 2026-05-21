@@ -1013,6 +1013,25 @@ fn en(key: &str) -> Option<&'static str> {
         "ws_msg_sys" => Some("Sys"),
         "ws_invalid_url" => Some("Please enter a valid WebSocket URL (ws:// or wss://)"),
 
+        // UDP
+        "udp_name" => Some("UDP Client"),
+        "udp_desc" => Some("UDP client: send/receive datagrams, optional heartbeat"),
+        "udp_save_default" => Some("udp_log.txt"),
+        "udp_btn_bind" => Some("Bind"),
+        "udp_btn_unbind" => Some("Unbind"),
+        "udp_bound" => Some("Bound"),
+        "udp_unbound" => Some("Unbound"),
+        "udp_invalid_addr" => Some("Please enter a valid address (host:port)"),
+        "udp_btn_send" => Some("Send"),
+        "udp_msg_sys" => Some("Sys"),
+        "udp_msg_recv" => Some("Recv"),
+        "udp_msg_sent" => Some("Sent"),
+        "udp_local_ip" => Some("Local IP:"),
+        "udp_local_port" => Some("Port:"),
+        "udp_port_hint" => Some("auto"),
+        "udp_target" => Some("Target:"),
+        "udp_invalid_port" => Some("Invalid port number"),
+
         // Fallback
         _ => None,
     }
@@ -1821,6 +1840,25 @@ fn zh(key: &str) -> Option<String> {
         "ws_msg_error" => Some("错误".to_string()),
         "ws_msg_sys" => Some("系统".to_string()),
         "ws_invalid_url" => Some("请输入有效的 WebSocket 地址 (ws:// 或 wss://)".to_string()),
+
+        // UDP
+        "udp_name" => Some("UDP 客户端".to_string()),
+        "udp_desc" => Some("UDP 客户端：收发数据报，支持可选心跳".to_string()),
+        "udp_save_default" => Some("udp_日志.txt".to_string()),
+        "udp_btn_bind" => Some("绑定".to_string()),
+        "udp_btn_unbind" => Some("解绑".to_string()),
+        "udp_bound" => Some("已绑定".to_string()),
+        "udp_unbound" => Some("已解绑".to_string()),
+        "udp_invalid_addr" => Some("请输入有效的地址 (host:port)".to_string()),
+        "udp_btn_send" => Some("发送".to_string()),
+        "udp_msg_sys" => Some("系统".to_string()),
+        "udp_msg_recv" => Some("接收".to_string()),
+        "udp_msg_sent" => Some("发送".to_string()),
+        "udp_local_ip" => Some("本机网卡:".to_string()),
+        "udp_local_port" => Some("本机端口:".to_string()),
+        "udp_port_hint" => Some("留空自动".to_string()),
+        "udp_target" => Some("目标地址:".to_string()),
+        "udp_invalid_port" => Some("无效的端口号".to_string()),
 
         // Fallback
         _ => None,

@@ -1,7 +1,8 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
-use image::GenericImageView;
+use crate::tools::async_utils::{Pending, save_file_binary_async};
+use image::{GenericImageView, ImageEncoder};
 
 const PROTANOPIA_MATRIX: [[f64; 3]; 3] = [
     [0.567, 0.433, 0.0],
@@ -48,6 +49,8 @@ pub struct ColorBlindness {
     pixel_sets: [Vec<u8>; 4], // original, proto, deuto, trito
     textures: [Option<egui::TextureHandle>; 4],
     textures_dirty: bool,
+    pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for ColorBlindness {
@@ -60,6 +63,8 @@ impl Default for ColorBlindness {
             pixel_sets: [Vec::new(), Vec::new(), Vec::new(), Vec::new()],
             textures: [None, None, None, None],
             textures_dirty: false,
+            pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -138,6 +143,13 @@ impl Tool for ColorBlindness {
     fn category(&self) -> ToolCategory { ToolCategory::Graphic }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.error = text;
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
+        }
+
         ui.horizontal(|ui| {
             let lbl_open = tr!("btn_open_file");
             if ui.button(lbl_open).clicked() {
@@ -176,13 +188,20 @@ impl Tool for ColorBlindness {
                             let title = tr!("save_as_title");
                             let filter_image = tr!("cb_filter_image");
                             let default_name = tr!("cb_save_default");
-                            if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_image, &["png"], &default_name) {
-                                if let Some(img) = image::RgbaImage::from_raw(
+                            if let Some(img) = image::RgbaImage::from_raw(
+                                self.img_width,
+                                self.img_height,
+                                self.pixel_sets[i].to_vec(),
+                            ) {
+                                let mut buf = Vec::new();
+                                let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+                                if encoder.write_image(
+                                    img.as_raw(),
                                     self.img_width,
                                     self.img_height,
-                                    self.pixel_sets[i].to_vec(),
-                                ) {
-                                    let _ = img.save(&path);
+                                    image::ColorType::Rgba8.into(),
+                                ).is_ok() {
+                                    save_file_binary_async(&mut self.save_pending, &title, &filter_image, &["png"], &default_name, buf);
                                 }
                             }
                         }

@@ -8,7 +8,7 @@ use tungstenite::stream::MaybeTlsStream;
 
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
-use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
 
 // ── Messages between handler thread and UI ───────────────────────────
 
@@ -40,6 +40,7 @@ pub struct WebSocketTool {
     event_rx: Option<mpsc::Receiver<WsEvent>>,
     handler: Option<JoinHandle<()>>,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for WebSocketTool {
@@ -58,6 +59,7 @@ impl Default for WebSocketTool {
             event_rx: None,
             handler: None,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -83,6 +85,9 @@ impl Tool for WebSocketTool {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.send_input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         self.poll_events();
 
@@ -184,11 +189,7 @@ impl Tool for WebSocketTool {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(
-                            &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("ws_save_default"),
-                        ) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("ws_save_default"), self.output.clone());
                     }
                 });
                 ui.add_space(2.0);

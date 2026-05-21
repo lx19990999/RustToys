@@ -23,6 +23,7 @@ pub struct JwtDecoder {
     verify_result: String,
     verify_valid: bool,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for JwtDecoder {
@@ -40,6 +41,7 @@ impl Default for JwtDecoder {
             verify_result: String::new(),
             verify_valid: false,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -58,6 +60,9 @@ impl Tool for JwtDecoder {
                     self.decode();
                 }
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         let label_decode = tr!("label_decode");
         let label_encode = tr!("label_encode");
@@ -155,9 +160,7 @@ impl JwtDecoder {
                         ui.ctx().copy_text(self.header.clone());
                     }
                     if !self.header.is_empty() && ui.small_button(tr!("btn_save_as")).clicked() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("jwt_save_header"), "JSON", &["json"], &tr!("jwt_header_json")) {
-                            let _ = std::fs::write(path, &self.header);
-                        }
+                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("jwt_save_header"), "JSON", &["json"], &tr!("jwt_header_json"), self.header.clone());
                     }
                 });
 
@@ -181,9 +184,7 @@ impl JwtDecoder {
                         ui.ctx().copy_text(self.payload.clone());
                     }
                     if !self.payload.is_empty() && ui.small_button(tr!("btn_save_as")).clicked() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("jwt_save_payload"), "JSON", &["json"], &tr!("jwt_payload_json")) {
-                            let _ = std::fs::write(path, &self.payload);
-                        }
+                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("jwt_save_payload"), "JSON", &["json"], &tr!("jwt_payload_json"), self.payload.clone());
                     }
                 });
 
@@ -267,9 +268,7 @@ impl JwtDecoder {
                         ui.ctx().copy_text(self.encode_output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.encode_output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "JWT", &["jwt"], &tr!("jwt_save_token")) {
-                            let _ = std::fs::write(path, &self.encode_output);
-                        }
+                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), "JWT", &["jwt"], &tr!("jwt_save_token"), self.encode_output.clone());
                     }
                 });
                 ui.add_space(2.0);

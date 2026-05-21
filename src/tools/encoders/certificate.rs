@@ -1,13 +1,27 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::{Pending, save_file_async};
 use base64::Engine;
 
-#[derive(Default)]
 pub struct CertificateDecoder {
     input: String,
     output: String,
     error: String,
+    save_result: String,
+    pending_file: Pending<String>,
+}
+
+impl Default for CertificateDecoder {
+    fn default() -> Self {
+        Self {
+            input: String::new(),
+            output: String::new(),
+            error: String::new(),
+            save_result: String::new(),
+            pending_file: Pending::default(),
+        }
+    }
 }
 
 impl Tool for CertificateDecoder {
@@ -16,6 +30,10 @@ impl Tool for CertificateDecoder {
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.save_result = text;
+        }
+
         let prev_input = self.input.clone();
 
         ui.columns(2, |cols| {
@@ -58,6 +76,7 @@ impl Tool for CertificateDecoder {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
+                        self.save_result.clear();
                     }
                 });
                 ui.add_space(2.0);
@@ -86,11 +105,12 @@ impl Tool for CertificateDecoder {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("cert_save_default")) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        save_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("cert_save_default"), self.output.clone());
                     }
                 });
+                if !self.save_result.is_empty() {
+                    ui.colored_label(egui::Color32::GREEN, &self.save_result);
+                }
                 ui.add_space(2.0);
                 ui.label(tr!("cert_output_label"));
 

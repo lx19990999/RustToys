@@ -1,6 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::{Pending, save_file_async};
 use rand::Rng;
 
 // Classic Lorem Ipsum word set
@@ -95,6 +96,8 @@ pub struct LoremIpsum {
     library: usize,
     start_with_classic: bool,
     initialized: bool,
+    save_result: String,
+    pending_file: Pending<String>,
 }
 
 impl Default for LoremIpsum {
@@ -104,14 +107,17 @@ impl Default for LoremIpsum {
             count: 3,
             mode: 0,
             library: 0,
-            start_with_classic: true,
+            start_with_classic: false,
             initialized: false,
+            save_result: String::new(),
+            pending_file: Pending::default(),
         }
     }
 }
 
 impl LoremIpsum {
     fn generate(&mut self) {
+        self.save_result.clear();
         let (_, words) = TEXT_LIBRARIES[self.library];
         let mut rng = rand::thread_rng();
 
@@ -193,6 +199,10 @@ impl Tool for LoremIpsum {
     fn category(&self) -> ToolCategory { ToolCategory::Generators }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.save_result = text;
+        }
+
         if !self.initialized {
             self.generate();
             self.initialized = true;
@@ -277,11 +287,12 @@ impl Tool for LoremIpsum {
                     let title = tr!("save_as_title");
                     let filter_text = tr!("save_filter_text");
                     let default_name = tr!("lorem_save_default");
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_text, &["txt"], &default_name) {
-                        let _ = std::fs::write(path, &self.output);
-                    }
+                    save_file_async(&mut self.pending_file, &title, &filter_text, &["txt"], &default_name, self.output.clone());
                 }
             });
+        }
+        if !self.save_result.is_empty() {
+            ui.colored_label(egui::Color32::GREEN, &self.save_result);
         }
     }
 }

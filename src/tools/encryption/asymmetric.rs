@@ -1,7 +1,7 @@
 use eframe::egui;
 use crate::tr;
 use crate::tool::{Tool, ToolCategory};
-use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
 
 pub struct AsymmetricEncryption {
     input: String,
@@ -13,6 +13,7 @@ pub struct AsymmetricEncryption {
     pending_file: Pending<String>,
     pending_pub_file: Pending<String>,
     pending_priv_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for AsymmetricEncryption {
@@ -27,6 +28,7 @@ impl Default for AsymmetricEncryption {
             pending_file: Pending::default(),
             pending_pub_file: Pending::default(),
             pending_priv_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -38,20 +40,34 @@ impl Tool for AsymmetricEncryption {
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         let err_prefix = tr!("err_error_reading");
+        let prev_input = self.input.clone();
+        let prev_encrypt = self.encrypt;
+        let prev_pub = self.public_key.clone();
+        let prev_priv = self.private_key.clone();
+
         if let Some(text) = self.pending_file.poll() {
-            if !text.starts_with(&err_prefix) {
+            if text.starts_with(&err_prefix) {
+                self.error = text;
+            } else {
                 self.input = text;
             }
         }
         if let Some(text) = self.pending_pub_file.poll() {
-            if !text.starts_with(&err_prefix) {
+            if text.starts_with(&err_prefix) {
+                self.error = text;
+            } else {
                 self.public_key = text;
             }
         }
         if let Some(text) = self.pending_priv_file.poll() {
-            if !text.starts_with(&err_prefix) {
+            if text.starts_with(&err_prefix) {
+                self.error = text;
+            } else {
                 self.private_key = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
 
         // Mode selector
@@ -82,9 +98,7 @@ impl Tool for AsymmetricEncryption {
                 ui.ctx().copy_text(self.public_key.clone());
             }
             if ui.button(tr!("btn_save_as")).clicked() && !self.public_key.is_empty() {
-                if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("asym_save_pub"), "PEM", &["pem"], &tr!("asym_pub_pem")) {
-                    let _ = std::fs::write(path, &self.public_key);
-                }
+                save_file_async(&mut self.save_pending, &tr!("asym_save_pub"), "PEM", &["pem"], &tr!("asym_pub_pem"), self.public_key.clone());
             }
         });
         egui::ScrollArea::vertical()
@@ -117,9 +131,7 @@ impl Tool for AsymmetricEncryption {
                 ui.ctx().copy_text(self.private_key.clone());
             }
             if ui.button(tr!("btn_save_as")).clicked() && !self.private_key.is_empty() {
-                if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("asym_save_priv"), "PEM", &["pem"], &tr!("asym_priv_pem")) {
-                    let _ = std::fs::write(path, &self.private_key);
-                }
+                save_file_async(&mut self.save_pending, &tr!("asym_save_priv"), "PEM", &["pem"], &tr!("asym_priv_pem"), self.private_key.clone());
             }
         });
         egui::ScrollArea::vertical()
@@ -138,11 +150,6 @@ impl Tool for AsymmetricEncryption {
             self.generate_key_pair();
         }
         ui.add_space(4.0);
-
-        let prev_input = self.input.clone();
-        let prev_encrypt = self.encrypt;
-        let prev_pub = self.public_key.clone();
-        let prev_priv = self.private_key.clone();
 
         ui.columns(2, |cols| {
             // Left: Input
@@ -194,9 +201,7 @@ impl Tool for AsymmetricEncryption {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "Text", &["txt"], &tr!("default_output_txt")) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), "Text", &["txt"], &tr!("default_output_txt"), self.output.clone());
                     }
                 });
                 ui.add_space(2.0);

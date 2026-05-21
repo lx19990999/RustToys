@@ -8,6 +8,8 @@ pub struct MarkdownPreview {
     html_output: String,
     theme: usize, // 0=GitHub Light, 1=GitHub Dark
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
+    save_result: String,
 }
 
 impl Default for MarkdownPreview {
@@ -17,6 +19,8 @@ impl Default for MarkdownPreview {
             html_output: String::new(),
             theme: 0,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
+            save_result: String::new(),
         }
     }
 }
@@ -32,6 +36,9 @@ impl Tool for MarkdownPreview {
             if !text.starts_with(&err_reading) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.save_result = text;
         }
         let total = ui.available_rect_before_wrap();
         let pad = 4.0;
@@ -102,9 +109,7 @@ impl Tool for MarkdownPreview {
                     ui.ctx().copy_text(self.input.clone());
                 }
                 if ui.button(&lbl_save_as).clicked() && !self.input.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("md_filter_md"), &["md"], &tr!("md_save_default")) {
-                        let _ = std::fs::write(path, &self.input);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("md_filter_md"), &["md"], &tr!("md_save_default"), self.input.clone());
                 }
             });
             ui.add_space(space);
@@ -129,9 +134,10 @@ impl Tool for MarkdownPreview {
                     ui.ctx().copy_text(self.html_output.clone());
                 }
                 if ui.button(&lbl_save_html).clicked() && !self.html_output.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("md_filter_html"), &["html"], &tr!("md_save_html")) {
-                        let _ = std::fs::write(path, &self.html_output);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("md_filter_html"), &["html"], &tr!("md_save_html"), self.html_output.clone());
+                }
+                if !self.save_result.is_empty() {
+                    ui.colored_label(egui::Color32::from_rgb(0, 180, 0), &self.save_result);
                 }
             });
             ui.add_space(space);

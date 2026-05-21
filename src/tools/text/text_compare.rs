@@ -10,7 +10,16 @@ pub struct TextComparer {
     prev_a: String,
     prev_b: String,
     pending_file: Pending<String>,
+    pending_open_target: Option<OpenTextTarget>,
+    save_pending: Pending<String>,
+    save_result: String,
     pending_diff: Pending<Vec<DiffLine>>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OpenTextTarget {
+    A,
+    B,
 }
 
 struct DiffLine {
@@ -38,6 +47,9 @@ impl Default for TextComparer {
             prev_a: String::new(),
             prev_b: String::new(),
             pending_file: Pending::default(),
+            pending_open_target: None,
+            save_pending: Pending::default(),
+            save_result: String::new(),
             pending_diff: Pending::default(),
         }
     }
@@ -53,12 +65,15 @@ impl Tool for TextComparer {
         // Poll async file read results
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&err_reading) {
-                if self.text_a.is_empty() {
-                    self.text_a = text;
-                } else {
-                    self.text_b = text;
+                match self.pending_open_target.take() {
+                    Some(OpenTextTarget::A) => self.text_a = text,
+                    Some(OpenTextTarget::B) => self.text_b = text,
+                    None => {}
                 }
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.save_result = text;
         }
 
         // Poll async diff results
@@ -106,6 +121,7 @@ impl Tool for TextComparer {
                     }
                 }
                 if ui.button(&lbl_open).clicked() {
+                    self.pending_open_target = Some(OpenTextTarget::A);
                     open_file_async(&mut self.pending_file, &tr!("tc_open_a"), &tr!("save_filter_text"), &["txt"]);
                 }
                 if ui.button(&lbl_clear).clicked() {
@@ -116,9 +132,7 @@ impl Tool for TextComparer {
                     ui.ctx().copy_text(self.text_a.clone());
                 }
                 if ui.button(&lbl_save_as).clicked() && !self.text_a.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("tc_save_a")) {
-                        let _ = std::fs::write(path, &self.text_a);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("tc_save_a"), self.text_a.clone());
                 }
             });
             cols[0].add_space(2.0);
@@ -143,6 +157,7 @@ impl Tool for TextComparer {
                     }
                 }
                 if ui.button(&lbl_open).clicked() {
+                    self.pending_open_target = Some(OpenTextTarget::B);
                     open_file_async(&mut self.pending_file, &tr!("tc_open_b"), &tr!("save_filter_text"), &["txt"]);
                 }
                 if ui.button(&lbl_clear).clicked() {
@@ -153,9 +168,7 @@ impl Tool for TextComparer {
                     ui.ctx().copy_text(self.text_b.clone());
                 }
                 if ui.button(&lbl_save_as).clicked() && !self.text_b.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("tc_save_b")) {
-                        let _ = std::fs::write(path, &self.text_b);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("tc_save_b"), self.text_b.clone());
                 }
             });
             cols[1].add_space(2.0);
@@ -207,11 +220,12 @@ impl Tool for TextComparer {
                 }
                 if ui.button(&lbl_save_as).clicked() {
                     let text = self.format_diff();
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("tc_save_diff")) {
-                        let _ = std::fs::write(path, text);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("tc_save_diff"), text);
                 }
             });
+        }
+        if !self.save_result.is_empty() {
+            ui.colored_label(egui::Color32::from_rgb(0, 180, 0), &self.save_result);
         }
     }
 }

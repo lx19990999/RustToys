@@ -1,7 +1,7 @@
 use eframe::egui;
 use crate::tr;
 use crate::tool::{Tool, ToolCategory};
-use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -13,6 +13,7 @@ pub struct JsonFormatter {
     sort_keys: bool,
     minify: bool,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for JsonFormatter {
@@ -25,6 +26,7 @@ impl Default for JsonFormatter {
             sort_keys: false,
             minify: false,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -40,6 +42,9 @@ impl Tool for JsonFormatter {
             if !text.starts_with(&err_prefix) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         let prev_input = self.input.clone();
         let prev_indent = self.indent;
@@ -102,9 +107,7 @@ impl Tool for JsonFormatter {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "JSON", &["json"], "formatted.json") {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), "JSON", &["json"], "formatted.json", self.output.clone());
                     }
                 });
                 ui.add_space(2.0);

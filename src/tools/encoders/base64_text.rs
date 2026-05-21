@@ -1,6 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::Pending;
 use base64::Engine;
 
 #[derive(Default)]
@@ -9,6 +10,8 @@ pub struct Base64Text {
     output: String,
     error: String,
     encode_mode: bool,
+    pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Tool for Base64Text {
@@ -17,6 +20,14 @@ impl Tool for Base64Text {
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            if !text.starts_with(&tr!("err_error_reading")) {
+                self.input = text;
+            }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
+        }
         let label_encode = tr!("label_encode");
         let label_decode = tr!("label_decode");
         ui.horizontal(|ui| {
@@ -89,9 +100,7 @@ impl Tool for Base64Text {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt")) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt"), self.output.clone());
                     }
                 });
                 ui.add_space(2.0);

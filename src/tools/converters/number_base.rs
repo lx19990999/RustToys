@@ -1,7 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
-use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
 
 
 pub struct NumberBase {
@@ -11,6 +11,7 @@ pub struct NumberBase {
     hex: String,
     error: String,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
     pending_field: Option<String>,
 }
 
@@ -23,6 +24,7 @@ impl Default for NumberBase {
             hex: String::new(),
             error: String::new(),
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
             pending_field: None,
         }
     }
@@ -56,6 +58,9 @@ impl Tool for NumberBase {
             }
         }
         self.error.clear();
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
+        }
         let mut pending: Option<PendingAction> = None;
         let mut error_msg = String::new();
 
@@ -64,7 +69,7 @@ impl Tool for NumberBase {
         ui.horizontal(|ui| {
             ui.label(tr!("nb_decimal"));
             if ui.text_edit_singleline(&mut self.decimal).changed() { dec_changed = true; }
-            Self::buttons(ui, &self.decimal, "decimal", &mut pending, &mut error_msg);
+            Self::buttons(ui, &mut self.save_pending, &self.decimal, "decimal", &mut pending, &mut error_msg);
         });
         if let Ok(n) = self.decimal.trim().parse::<i64>() {
             ui.horizontal(|ui| { ui.label(tr!("nb_formatted")); ui.monospace(format_number(n)); });
@@ -75,7 +80,7 @@ impl Tool for NumberBase {
         ui.horizontal(|ui| {
             ui.label(tr!("nb_binary"));
             if ui.text_edit_singleline(&mut self.binary).changed() { bin_changed = true; }
-            Self::buttons(ui, &self.binary, "binary", &mut pending, &mut error_msg);
+            Self::buttons(ui, &mut self.save_pending, &self.binary, "binary", &mut pending, &mut error_msg);
         });
 
         // Octal
@@ -83,7 +88,7 @@ impl Tool for NumberBase {
         ui.horizontal(|ui| {
             ui.label(tr!("nb_octal"));
             if ui.text_edit_singleline(&mut self.octal).changed() { oct_changed = true; }
-            Self::buttons(ui, &self.octal, "octal", &mut pending, &mut error_msg);
+            Self::buttons(ui, &mut self.save_pending, &self.octal, "octal", &mut pending, &mut error_msg);
         });
 
         // Hex
@@ -91,7 +96,7 @@ impl Tool for NumberBase {
         ui.horizontal(|ui| {
             ui.label(tr!("nb_hex"));
             if ui.text_edit_singleline(&mut self.hex).changed() { hex_changed = true; }
-            Self::buttons(ui, &self.hex, "hex", &mut pending, &mut error_msg);
+            Self::buttons(ui, &mut self.save_pending, &self.hex, "hex", &mut pending, &mut error_msg);
         });
 
         if !error_msg.is_empty() {
@@ -136,6 +141,7 @@ impl Tool for NumberBase {
 impl NumberBase {
     fn buttons(
         ui: &mut egui::Ui,
+        save_pending: &mut Pending<String>,
         value: &str,
         field: &'static str,
         pending: &mut Option<PendingAction>,
@@ -151,9 +157,7 @@ impl NumberBase {
             *pending = Some(PendingAction::Open(field));
         }
         if ui.small_button(tr!("nb_save")).clicked() && !value.is_empty() {
-            if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("nb_save_as"), &tr!("save_filter_text"), &["txt"], &tr!("nb_save_default", field)) {
-                let _ = std::fs::write(path, value);
-            }
+            save_file_async(save_pending, &tr!("nb_save_as"), &tr!("save_filter_text"), &["txt"], &tr!("nb_save_default", field), value.to_string());
         }
         if ui.small_button(tr!("btn_clear")).clicked() {
             *pending = Some(PendingAction::Clear);

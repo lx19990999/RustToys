@@ -1,18 +1,35 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::Pending;
 
-#[derive(Default)]
 pub struct UuidGenerator {
     output: String,
     count: usize,
     uppercase: bool,
     with_hyphens: bool,
     version: usize, // 0=v1, 1=v4, 2=v7
+    save_result: String,
+    pending_file: Pending<String>,
+}
+
+impl Default for UuidGenerator {
+    fn default() -> Self {
+        Self {
+            output: String::new(),
+            count: 0,
+            uppercase: false,
+            with_hyphens: true,
+            version: 1,
+            save_result: String::new(),
+            pending_file: Pending::default(),
+        }
+    }
 }
 
 impl UuidGenerator {
     fn do_generate(&mut self) {
+        self.save_result.clear();
         let mut uuids = Vec::new();
         for _ in 0..self.count {
             let id = match self.version {
@@ -46,6 +63,9 @@ impl Tool for UuidGenerator {
     fn category(&self) -> ToolCategory { ToolCategory::Generators }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.save_result = text;
+        }
         if self.count == 0 {
             self.count = 1;
             self.with_hyphens = true;
@@ -105,11 +125,12 @@ impl Tool for UuidGenerator {
                     let title = tr!("save_as_title");
                     let filter_text = tr!("save_filter_text");
                     let default_name = tr!("uuid_save_default");
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_text, &["txt"], &default_name) {
-                        let _ = std::fs::write(path, &self.output);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.pending_file, &title, &filter_text, &["txt"], &default_name, self.output.clone());
                 }
             });
+        }
+        if !self.save_result.is_empty() {
+            ui.colored_label(egui::Color32::GREEN, &self.save_result);
         }
     }
 }

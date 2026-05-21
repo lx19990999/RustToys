@@ -14,7 +14,9 @@ pub struct XmlTester {
     severity: Severity,
     prev_xsd: String,
     prev_xml: String,
-    pending_file: Pending<String>,
+    pending_xsd_file: Pending<String>,
+    pending_xml_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -35,7 +37,9 @@ impl Default for XmlTester {
             severity: Severity::None,
             prev_xsd: String::new(),
             prev_xml: String::new(),
-            pending_file: Pending::default(),
+            pending_xsd_file: Pending::default(),
+            pending_xml_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -96,10 +100,20 @@ impl Tool for XmlTester {
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         let err_reading = tr!("err_error_reading");
-        if let Some(text) = self.pending_file.poll() {
+        if let Some(text) = self.pending_xsd_file.poll() {
             if !text.starts_with(&err_reading) {
                 self.xsd_input = text;
+                self.error.clear();
             }
+        }
+        if let Some(text) = self.pending_xml_file.poll() {
+            if !text.starts_with(&err_reading) {
+                self.xml_input = text;
+                self.error.clear();
+            }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         let total = ui.available_rect_before_wrap();
         let pad = 4.0;
@@ -138,7 +152,7 @@ impl Tool for XmlTester {
                     }
                 }
                 if ui.button(&lbl_open).clicked() {
-                    open_file_async(&mut self.pending_file, &tr!("btn_open_file"), &tr!("xsd_label"), &["xsd"]);
+                    open_file_async(&mut self.pending_xsd_file, &tr!("btn_open_file"), &tr!("xsd_label"), &["xsd"]);
                 }
                     if ui.button(&lbl_clear).clicked() {
                     self.xsd_input.clear();
@@ -172,7 +186,7 @@ impl Tool for XmlTester {
                     }
                 }
                 if ui.button(&lbl_open).clicked() {
-                    open_file_async(&mut self.pending_file, &tr!("btn_open_file"), &tr!("xsd_label"), &["xsd"]);
+                    open_file_async(&mut self.pending_xml_file, &tr!("btn_open_file"), &tr!("xml_label"), &["xml"]);
                 }
                     if ui.button(&lbl_clear).clicked() {
                     self.xml_input.clear();
@@ -231,10 +245,8 @@ impl Tool for XmlTester {
                             ui.ctx().copy_text(t.clone());
                         }
                         if ui.button(&lbl_save_as).clicked() {
-                            if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("xsd_save_default")) {
-                                let t = if self.error.is_empty() { &self.output } else { &self.error };
-                                let _ = std::fs::write(path, t);
-                            }
+                            let t = if self.error.is_empty() { self.output.clone() } else { self.error.clone() };
+                            crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("xsd_save_default"), t);
                         }
                     });
                 });

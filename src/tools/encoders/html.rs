@@ -10,6 +10,7 @@ pub struct HtmlEncoder {
     error: String,
     encode_mode: bool,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for HtmlEncoder {
@@ -20,6 +21,7 @@ impl Default for HtmlEncoder {
             error: String::new(),
             encode_mode: false,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -38,6 +40,9 @@ impl Tool for HtmlEncoder {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         let label_encode = tr!("label_encode");
         let label_decode = tr!("label_decode");
@@ -93,9 +98,7 @@ impl Tool for HtmlEncoder {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt")) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt"), self.output.clone());
                     }
                 });
                 ui.add_space(2.0);

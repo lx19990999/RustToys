@@ -1,8 +1,8 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::{Pending, save_file_async};
 
-#[derive(Default)]
 pub struct CronParser {
     input: String,
     output: String,
@@ -10,6 +10,23 @@ pub struct CronParser {
     count: usize,
     date_format: String,
     include_seconds: bool,
+    save_result: String,
+    pending_file: Pending<String>,
+}
+
+impl Default for CronParser {
+    fn default() -> Self {
+        Self {
+            input: String::new(),
+            output: String::new(),
+            description: String::new(),
+            count: 0,
+            date_format: String::new(),
+            include_seconds: false,
+            save_result: String::new(),
+            pending_file: Pending::default(),
+        }
+    }
 }
 
 impl Tool for CronParser {
@@ -18,6 +35,10 @@ impl Tool for CronParser {
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.save_result = text;
+        }
+
         if self.count == 0 {
             self.count = 5;
             self.date_format = "%Y-%m-%d %H:%M:%S".to_string();
@@ -42,6 +63,7 @@ impl Tool for CronParser {
         if ui.button(tr!("btn_parse")).clicked() {
             self.description.clear();
             self.output.clear();
+            self.save_result.clear();
 
             let expr = self.input.trim();
             let cron_expr = if self.include_seconds {
@@ -94,11 +116,12 @@ impl Tool for CronParser {
                     ui.ctx().copy_text(self.output.clone());
                 }
                 if ui.button(tr!("btn_save_as")).clicked() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("cron_save_default")) {
-                        let _ = std::fs::write(path, &self.output);
-                    }
+                    save_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("cron_save_default"), self.output.clone());
                 }
             });
+        }
+        if !self.save_result.is_empty() {
+            ui.colored_label(egui::Color32::GREEN, &self.save_result);
         }
     }
 }

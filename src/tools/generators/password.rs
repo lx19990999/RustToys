@@ -1,9 +1,9 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::Pending;
 use rand::Rng;
 
-#[derive(Default)]
 pub struct PasswordGenerator {
     output: String,
     length: usize,
@@ -13,6 +13,25 @@ pub struct PasswordGenerator {
     use_symbols: bool,
     exclude_chars: String,
     count: usize,
+    save_result: String,
+    pending_file: Pending<String>,
+}
+
+impl Default for PasswordGenerator {
+    fn default() -> Self {
+        Self {
+            output: String::new(),
+            length: 0,
+            use_upper: false,
+            use_lower: false,
+            use_digits: false,
+            use_symbols: false,
+            exclude_chars: String::new(),
+            count: 0,
+            save_result: String::new(),
+            pending_file: Pending::default(),
+        }
+    }
 }
 
 impl PasswordGenerator {
@@ -28,6 +47,7 @@ impl PasswordGenerator {
     }
 
     fn do_generate(&mut self) {
+        self.save_result.clear();
         let mut charset = String::new();
         if self.use_upper { charset.push_str("ABCDEFGHIJKLMNOPQRSTUVWXYZ"); }
         if self.use_lower { charset.push_str("abcdefghijklmnopqrstuvwxyz"); }
@@ -62,6 +82,9 @@ impl Tool for PasswordGenerator {
     fn category(&self) -> ToolCategory { ToolCategory::Generators }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.save_result = text;
+        }
         self.init();
 
         ui.horizontal(|ui| {
@@ -116,11 +139,12 @@ impl Tool for PasswordGenerator {
                     let title = tr!("save_as_title");
                     let filter_text = tr!("save_filter_text");
                     let default_name = tr!("pw_save_default");
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_text, &["txt"], &default_name) {
-                        let _ = std::fs::write(path, &self.output);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.pending_file, &title, &filter_text, &["txt"], &default_name, self.output.clone());
                 }
             });
+        }
+        if !self.save_result.is_empty() {
+            ui.colored_label(egui::Color32::GREEN, &self.save_result);
         }
     }
 }

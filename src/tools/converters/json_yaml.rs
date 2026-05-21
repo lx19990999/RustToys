@@ -1,7 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
-use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
 use serde_json::Value;
 use serde::Serialize;
 
@@ -13,6 +13,7 @@ pub struct JsonYaml {
     to_yaml: bool,
     indent: usize,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for JsonYaml {
@@ -24,6 +25,7 @@ impl Default for JsonYaml {
             to_yaml: false,
             indent: 0,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -39,6 +41,9 @@ impl Tool for JsonYaml {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         let label_jy_json_to_yaml = tr!("jy_json_to_yaml");
         let label_jy_yaml_to_json = tr!("jy_yaml_to_json");
@@ -106,9 +111,7 @@ impl Tool for JsonYaml {
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
                         let ext = if self.to_yaml { "yaml" } else { "json" };
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &ext.to_uppercase(), &[ext], &format!("output.{}", ext)) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), &ext.to_uppercase(), &[ext], &format!("output.{}", ext), self.output.clone());
                     }
                 });
                 ui.add_space(2.0);

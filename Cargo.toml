@@ -60,3 +60,5 @@ aes-gcm = "0.10"
 des = "0.8"
 rsa = "0.9"
 tungstenite = { version = "0.21", features = ["native-tls"] }
+if-addrs = "0.7"
+mac_address = "1"

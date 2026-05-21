@@ -89,3 +89,46 @@ pub fn save_file_dialog(
     }
     path
 }
+
+/// Async save: show dialog (blocking), then write file in a background thread.
+/// `data` is a String (moved into the closure, no clone on the main thread).
+pub fn save_file_async(
+    pending: &mut Pending<String>,
+    title: &str,
+    filter_name: &str,
+    extensions: &[&str],
+    default_name: &str,
+    data: String,
+) {
+    if let Some(path) = save_file_dialog(title, filter_name, extensions, default_name) {
+        let (tx, rx) = mpsc::channel();
+        pending.set_receiver(rx);
+        std::thread::spawn(move || {
+            match std::fs::write(&path, data) {
+                Ok(_) => { let _ = tx.send(format!("Saved: {}", path.display())); }
+                Err(e) => { let _ = tx.send(format!("Save failed: {}", e)); }
+            }
+        });
+    }
+}
+
+/// Async save for binary data (Vec<u8>), e.g. images.
+pub fn save_file_binary_async(
+    pending: &mut Pending<String>,
+    title: &str,
+    filter_name: &str,
+    extensions: &[&str],
+    default_name: &str,
+    data: Vec<u8>,
+) {
+    if let Some(path) = save_file_dialog(title, filter_name, extensions, default_name) {
+        let (tx, rx) = mpsc::channel();
+        pending.set_receiver(rx);
+        std::thread::spawn(move || {
+            match std::fs::write(&path, data) {
+                Ok(_) => { let _ = tx.send(format!("Saved: {}", path.display())); }
+                Err(e) => { let _ = tx.send(format!("Save failed: {}", e)); }
+            }
+        });
+    }
+}

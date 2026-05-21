@@ -1,7 +1,7 @@
 use eframe::egui;
 use crate::tr;
 use crate::tool::{Tool, ToolCategory};
-use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
 use regex::Regex;
 
 pub struct SqlFormatter {
@@ -13,6 +13,7 @@ pub struct SqlFormatter {
     dialect: usize, // 0=Standard, 1=MySQL, 2=PostgreSQL, 3=PL/SQL
     leading_comma: bool,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for SqlFormatter {
@@ -26,6 +27,7 @@ impl Default for SqlFormatter {
             dialect: 0,
             leading_comma: false,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -41,6 +43,9 @@ impl Tool for SqlFormatter {
             if !text.starts_with(&err_prefix) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         let prev_input = self.input.clone();
         let prev_uppercase = self.uppercase;
@@ -120,9 +125,7 @@ impl Tool for SqlFormatter {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "SQL", &["sql"], &tr!("sql_save_default")) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), "SQL", &["sql"], &tr!("sql_save_default"), self.output.clone());
                     }
                 });
                 ui.add_space(2.0);

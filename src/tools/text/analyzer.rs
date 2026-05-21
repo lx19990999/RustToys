@@ -9,6 +9,8 @@ pub struct TextAnalyzer {
     input: String,
     original_input: Option<String>,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
+    save_result: String,
 }
 
 impl Default for TextAnalyzer {
@@ -17,6 +19,8 @@ impl Default for TextAnalyzer {
             input: String::new(),
             original_input: None,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
+            save_result: String::new(),
         }
     }
 }
@@ -33,6 +37,9 @@ impl Tool for TextAnalyzer {
             if !text.starts_with(&err_reading) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.save_result = text;
         }
         let pad = 4.0;
         let w = total.width();
@@ -78,9 +85,7 @@ impl Tool for TextAnalyzer {
                     ui.ctx().copy_text(self.input.clone());
                 }
                 if ui.button(&lbl_save_as).clicked() && !self.input.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt")) {
-                        let _ = std::fs::write(path, &self.input);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt"), self.input.clone());
                 }
                 if self.original_input.is_some() {
                     if ui.button(&lbl_show_original).clicked() {

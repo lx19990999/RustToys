@@ -1,6 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::{Pending, save_file_binary_async};
 use image::{GenericImageView, ImageEncoder};
 
 const FORMATS: &[(&str, &str)] = &[
@@ -36,6 +37,8 @@ pub struct ImageConverter {
 
     // Status
     status: String,
+    pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for ImageConverter {
@@ -56,6 +59,8 @@ impl Default for ImageConverter {
             keep_aspect: true,
             jpeg_quality: 85,
             status: String::new(),
+            pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -129,46 +134,37 @@ impl ImageConverter {
         resized.into_raw()
     }
 
-    fn save_image(&mut self) {
+    fn encode_image(&mut self) -> Option<Vec<u8>> {
         self.error.clear();
         self.status.clear();
         if !self.loaded {
-            return;
+            return None;
         }
         let pixels = self.get_output_pixels();
         let w = if self.resize_enabled { self.target_width } else { self.img_width };
         let h = if self.resize_enabled { self.target_height } else { self.img_height };
 
-        let (name, ext) = FORMATS[self.format_index];
-        let save_title = tr!("ic_save_title");
-        let default_filename = format!("output.{}", ext);
-        if let Some(path) = crate::tools::async_utils::save_file_dialog(&save_title, name, &[ext], &default_filename) {
-            let img = image::RgbaImage::from_raw(w, h, pixels).unwrap();
+        let (_, ext) = FORMATS[self.format_index];
+        let img = image::RgbaImage::from_raw(w, h, pixels).unwrap();
 
-            let result = if ext == "jpg" {
-                // JPEG doesn't support alpha, convert to RGB
-                let rgb_img = image::DynamicImage::ImageRgba8(img).to_rgb8();
-                let mut buf = Vec::new();
-                let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, self.jpeg_quality);
-                if encoder.write_image(rgb_img.as_raw(), w, h, image::ColorType::Rgb8.into()).is_ok() {
-                    std::fs::write(&path, buf).map_err(|e| e.to_string())
-                } else {
-                    Err(tr!("ic_jpeg_failed"))
-                }
+        if ext == "jpg" {
+            let rgb_img = image::DynamicImage::ImageRgba8(img).to_rgb8();
+            let mut buf = Vec::new();
+            let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, self.jpeg_quality);
+            if encoder.write_image(rgb_img.as_raw(), w, h, image::ColorType::Rgb8.into()).is_ok() {
+                Some(buf)
             } else {
-                img.save(&path).map_err(|e| e.to_string())
-            };
-
-            match result {
-                Ok(_) => {
-                    let size = std::fs::metadata(&path)
-                        .map(|m| tr!("ic_size_kb", m.len() as f64 / 1024.0))
-                        .unwrap_or_default();
-                    self.status = tr!("ic_saved", path.file_name().unwrap_or_default().to_string_lossy(), size);
-                }
-                Err(e) => {
-                    self.error = tr!("ic_save_failed", e);
-                }
+                self.error = tr!("ic_jpeg_failed");
+                None
+            }
+        } else {
+            let mut buf = Vec::new();
+            let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+            if encoder.write_image(img.as_raw(), w, h, image::ColorType::Rgba8.into()).is_ok() {
+                Some(buf)
+            } else {
+                self.error = tr!("ic_save_failed", "PNG encoding failed");
+                None
             }
         }
     }
@@ -194,6 +190,13 @@ impl Tool for ImageConverter {
     fn category(&self) -> ToolCategory { ToolCategory::Graphic }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.status = text;
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
+        }
+
         // Load section
         ui.horizontal(|ui| {
             let lbl_open = tr!("btn_open_file");
@@ -312,7 +315,12 @@ impl Tool for ImageConverter {
         ui.horizontal(|ui| {
             let lbl_save_as = tr!("btn_save_as");
             if ui.button(lbl_save_as).clicked() {
-                self.save_image();
+                if let Some(data) = self.encode_image() {
+                    let (name, ext) = FORMATS[self.format_index];
+                    let save_title = tr!("ic_save_title");
+                    let default_filename = format!("output.{}", ext);
+                    save_file_binary_async(&mut self.save_pending, &save_title, name, &[ext], &default_filename, data);
+                }
             }
             ui.separator();
             let lbl_clear = tr!("btn_clear");

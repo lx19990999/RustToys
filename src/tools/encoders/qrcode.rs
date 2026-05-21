@@ -19,6 +19,7 @@ pub struct QrCode {
     decode_error: String,
     decode_preview: Option<egui::TextureHandle>,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
     file_loaded: bool,
 }
 
@@ -37,6 +38,7 @@ impl Default for QrCode {
             decode_error: String::new(),
             decode_preview: None,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
             file_loaded: false,
         }
     }
@@ -55,6 +57,9 @@ impl Tool for QrCode {
                 self.input = text;
                 self.file_loaded = true;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         let label_encode = tr!("label_encode");
         let label_decode = tr!("label_decode");
@@ -156,14 +161,10 @@ impl QrCode {
                             ui.ctx().copy_text(b64);
                         }
                         if ui.button(tr!("btn_save_png")).clicked() {
-                            if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("qr_save_png_title"), "PNG", &["png"], &tr!("qr_save_png")) {
-                                let _ = std::fs::write(path, &self.png_bytes);
-                            }
+                            crate::tools::async_utils::save_file_binary_async(&mut self.save_pending, &tr!("qr_save_png_title"), "PNG", &["png"], &tr!("qr_save_png"), self.png_bytes.clone());
                         }
                         if ui.button(tr!("btn_save_svg")).clicked() && !self.svg_output.is_empty() {
-                            if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("qr_save_svg_title"), "SVG", &["svg"], &tr!("qr_save_svg")) {
-                                let _ = std::fs::write(path, &self.svg_output);
-                            }
+                            crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("qr_save_svg_title"), "SVG", &["svg"], &tr!("qr_save_svg"), self.svg_output.clone());
                         }
                     });
                 } else if !self.input.trim().is_empty() {
@@ -252,9 +253,7 @@ impl QrCode {
                         ui.ctx().copy_text(self.decoded_text.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.decoded_text.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("qr_save_decoded"), &tr!("save_filter_text"), &["txt"], &tr!("qr_decoded_txt")) {
-                            let _ = std::fs::write(path, &self.decoded_text);
-                        }
+                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("qr_save_decoded"), &tr!("save_filter_text"), &["txt"], &tr!("qr_decoded_txt"), self.decoded_text.clone());
                     }
                 });
                 ui.add_space(2.0);

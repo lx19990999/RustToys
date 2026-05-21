@@ -1,6 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::{Pending, save_file_async};
 use chrono::{TimeZone, Utc, Local, NaiveDateTime, Datelike};
 
 const TIMEZONES: &[(&str, &str)] = &[
@@ -24,6 +25,8 @@ pub struct DateConverter {
     format: String,
     output: String,
     tz_index: usize,
+    save_result: String,
+    pending_file: Pending<String>,
 }
 
 impl Default for DateConverter {
@@ -33,6 +36,8 @@ impl Default for DateConverter {
             format: "%Y-%m-%d %H:%M:%S %Z".to_string(),
             output: String::new(),
             tz_index: 0,
+            save_result: String::new(),
+            pending_file: Pending::default(),
         }
     }
 }
@@ -43,6 +48,10 @@ impl Tool for DateConverter {
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.save_result = text;
+        }
+
         ui.label(tr!("date_input_label"));
         ui.text_edit_singleline(&mut self.input);
         ui.add_space(4.0);
@@ -126,11 +135,12 @@ impl Tool for DateConverter {
                     ui.ctx().copy_text(self.output.clone());
                 }
                 if ui.button(tr!("btn_save_as")).clicked() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("date_save_default")) {
-                        let _ = std::fs::write(path, &self.output);
-                    }
+                    save_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("date_save_default"), self.output.clone());
                 }
             });
+        }
+        if !self.save_result.is_empty() {
+            ui.colored_label(egui::Color32::GREEN, &self.save_result);
         }
     }
 }

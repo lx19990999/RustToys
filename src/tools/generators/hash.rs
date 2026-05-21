@@ -1,6 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::Pending;
 use sha2::{Sha256, Sha384, Sha512, Digest};
 use sha1::Sha1;
 use md5::Md5;
@@ -22,6 +23,7 @@ enum HashMsg {
 pub struct HashGenerator {
     input: String,
     uppercase: bool,
+    error: String,
     md5: String,
     sha1: String,
     sha256: String,
@@ -34,6 +36,8 @@ pub struct HashGenerator {
     computing: bool,
     progress: f32,
     hash_rx: Option<mpsc::Receiver<HashMsg>>,
+    pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for HashGenerator {
@@ -41,6 +45,7 @@ impl Default for HashGenerator {
         Self {
             input: String::new(),
             uppercase: true,
+            error: String::new(),
             md5: String::new(),
             sha1: String::new(),
             sha256: String::new(),
@@ -52,6 +57,8 @@ impl Default for HashGenerator {
             computing: false,
             progress: 0.0,
             hash_rx: None,
+            pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -64,6 +71,13 @@ impl Tool for HashGenerator {
     fn is_busy(&self) -> bool { self.computing }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.verify_checksum = text;
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
+        }
+        // Poll background thread
         // Poll background thread
         let mut msgs = Vec::new();
         if let Some(rx) = &self.hash_rx {
@@ -183,11 +197,11 @@ impl Tool for HashGenerator {
             // Right: Hashes
             cols[1].vertical(|ui| {
                 ui.add_space(2.0);
-                Self::hash_row(ui, "MD5", &self.md5, &self.verify_checksum);
-                Self::hash_row(ui, "SHA-1", &self.sha1, &self.verify_checksum);
-                Self::hash_row(ui, "SHA-256", &self.sha256, &self.verify_checksum);
-                Self::hash_row(ui, "SHA-384", &self.sha384, &self.verify_checksum);
-                Self::hash_row(ui, "SHA-512", &self.sha512, &self.verify_checksum);
+                Self::hash_row(ui, "MD5", &self.md5, &self.verify_checksum, &mut self.save_pending);
+                Self::hash_row(ui, "SHA-1", &self.sha1, &self.verify_checksum, &mut self.save_pending);
+                Self::hash_row(ui, "SHA-256", &self.sha256, &self.verify_checksum, &mut self.save_pending);
+                Self::hash_row(ui, "SHA-384", &self.sha384, &self.verify_checksum, &mut self.save_pending);
+                Self::hash_row(ui, "SHA-512", &self.sha512, &self.verify_checksum, &mut self.save_pending);
 
                 // Copy All
                 if !self.md5.is_empty() && !self.computing {
@@ -205,13 +219,11 @@ impl Tool for HashGenerator {
                         let title = tr!("hash_save_single");
                         let filter_text = tr!("save_filter_text");
                         let default_name = tr!("hash_save_default");
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_text, &["txt"], &default_name) {
-                            let all = format!(
-                                "MD5:     {}\nSHA-1:   {}\nSHA-256: {}\nSHA-384: {}\nSHA-512: {}",
-                                self.md5, self.sha1, self.sha256, self.sha384, self.sha512
-                            );
-                            let _ = std::fs::write(path, &all);
-                        }
+                        let all = format!(
+                            "MD5:     {}\nSHA-1:   {}\nSHA-256: {}\nSHA-384: {}\nSHA-512: {}",
+                            self.md5, self.sha1, self.sha256, self.sha384, self.sha512
+                        );
+                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &title, &filter_text, &["txt"], &default_name, all);
                     }
                 }
             });
@@ -329,7 +341,7 @@ impl HashGenerator {
         });
     }
 
-    fn hash_row(ui: &mut egui::Ui, label: &str, value: &str, verify: &str) {
+    fn hash_row(ui: &mut egui::Ui, label: &str, value: &str, verify: &str, save_pending: &mut Pending<String>) {
         let matches = if !verify.is_empty() && !value.is_empty() {
             value.to_lowercase() == verify.trim().to_lowercase()
         } else {
@@ -355,9 +367,7 @@ impl HashGenerator {
                 if ui.button(lbl_save).clicked() {
                     let title = tr!("hash_save_single");
                     let filter_text = tr!("save_filter_text");
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&title, &filter_text, &["txt"], &format!("{}.txt", label.to_lowercase().replace('-', ""))) {
-                        let _ = std::fs::write(path, value);
-                    }
+                    crate::tools::async_utils::save_file_async(save_pending, &title, &filter_text, &["txt"], &format!("{}.txt", label.to_lowercase().replace('-', "")), value.to_string());
                 }
             }
         });

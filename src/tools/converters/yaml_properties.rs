@@ -1,7 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
-use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
 
 pub struct YamlProperties {
     input: String,
@@ -9,6 +9,7 @@ pub struct YamlProperties {
     error: String,
     to_properties: bool,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for YamlProperties {
@@ -19,6 +20,7 @@ impl Default for YamlProperties {
             error: String::new(),
             to_properties: true,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -33,6 +35,9 @@ impl Tool for YamlProperties {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
 
         let label_yp_yaml_to_props = tr!("yp_yaml_to_props");
@@ -97,9 +102,7 @@ impl Tool for YamlProperties {
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
                         let ext = if self.to_properties { "properties" } else { "yaml" };
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), ext, &[ext], &tr!("default_output_txt", ext)) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), ext, &[ext], &tr!("default_output_txt", ext), self.output.clone());
                     }
                 });
                 ui.add_space(2.0);

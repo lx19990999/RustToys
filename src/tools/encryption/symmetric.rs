@@ -1,9 +1,10 @@
 use eframe::egui;
 use crate::tr;
 use crate::tool::{Tool, ToolCategory};
-use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::async_utils::{Pending, save_file_async};
 use aes::cipher::{BlockEncrypt, BlockDecrypt, KeyInit, generic_array::GenericArray};
 use base64::Engine;
+use std::sync::mpsc;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Algorithm {
@@ -41,6 +42,7 @@ pub struct SymmetricEncryption {
     key: String,
     iv: String,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for SymmetricEncryption {
@@ -54,6 +56,7 @@ impl Default for SymmetricEncryption {
             key: String::new(),
             iv: String::new(),
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -64,11 +67,22 @@ impl Tool for SymmetricEncryption {
     fn category(&self) -> ToolCategory { ToolCategory::Encryption }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let err_prefix = tr!("err_error_reading");
+        let prev_input = self.input.clone();
+        let prev_encrypt = self.encrypt;
+        let prev_alg = self.algorithm;
+        let prev_key = self.key.clone();
+        let prev_iv = self.iv.clone();
+
         if let Some(text) = self.pending_file.poll() {
-            let err_prefix = tr!("err_error_reading");
-            if !text.starts_with(&err_prefix) {
+            if text.starts_with(&err_prefix) {
+                self.error = text;
+            } else {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
 
         ui.horizontal(|ui| {
@@ -100,12 +114,6 @@ impl Tool for SymmetricEncryption {
         });
         ui.add_space(4.0);
 
-        let prev_input = self.input.clone();
-        let prev_encrypt = self.encrypt;
-        let prev_alg = self.algorithm;
-        let prev_key = self.key.clone();
-        let prev_iv = self.iv.clone();
-
         ui.columns(2, |cols| {
             cols[0].vertical(|ui| {
                 let input_label = if self.encrypt { tr!("sym_input_plain") } else { tr!("sym_input_b64") };
@@ -117,7 +125,7 @@ impl Tool for SymmetricEncryption {
                         }
                     }
                     if ui.button(tr!("btn_open_file")).clicked() {
-                        open_file_async(&mut self.pending_file, "Open file", "All", &["*"]);
+                        Self::open_input_file_async(&mut self.pending_file, self.encrypt);
                     }
                     if ui.button(tr!("btn_clear")).clicked() {
                         self.input.clear();
@@ -145,9 +153,7 @@ impl Tool for SymmetricEncryption {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), "Text", &["txt"], &tr!("default_output_txt")) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), "Text", &["txt"], &tr!("default_output_txt"), self.output.clone());
                     }
                 });
                 ui.add_space(2.0);
@@ -174,6 +180,29 @@ impl Tool for SymmetricEncryption {
 }
 
 impl SymmetricEncryption {
+    /// Read file as raw bytes. Encrypt mode: UTF-8 text. Decrypt mode: Base64 text file or raw ciphertext.
+    fn open_input_file_async(pending: &mut Pending<String>, encrypt: bool) {
+        let path = rfd::FileDialog::new()
+            .set_title("Open file")
+            .add_filter("All", &["*"])
+            .pick_file();
+        if let Some(path) = path {
+            let (tx, rx) = mpsc::channel();
+            pending.set_receiver(rx);
+            std::thread::spawn(move || {
+                match std::fs::read(&path) {
+                    Ok(bytes) => {
+                        let text = input_from_file_bytes(&bytes, encrypt);
+                        let _ = tx.send(text);
+                    }
+                    Err(e) => {
+                        let _ = tx.send(format!("Error reading file: {}", e));
+                    }
+                }
+            });
+        }
+    }
+
     fn convert(&mut self) {
         self.error.clear();
         self.output.clear();
@@ -258,9 +287,31 @@ fn cbc_encrypt<C: BlockEncrypt>(cipher: &C, iv: &[u8], data: &[u8]) -> Result<St
     Ok(base64::engine::general_purpose::STANDARD.encode(&out))
 }
 
+fn input_from_file_bytes(bytes: &[u8], encrypt: bool) -> String {
+    if encrypt {
+        return String::from_utf8_lossy(bytes).into_owned();
+    }
+    if let Ok(s) = std::str::from_utf8(bytes) {
+        let normalized = normalize_base64_input(s);
+        if !normalized.is_empty()
+            && base64::engine::general_purpose::STANDARD.decode(&normalized).is_ok()
+        {
+            return s.to_string();
+        }
+    }
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+
+fn normalize_base64_input(data: &str) -> String {
+    data.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '+' || *c == '/' || *c == '=')
+        .collect()
+}
+
 fn cbc_decrypt<C: BlockDecrypt>(cipher: &C, iv: &[u8], data: &str) -> Result<String, String> {
     let bs = 16;
-    let ciphertext = base64::engine::general_purpose::STANDARD.decode(data.trim())
+    let ciphertext = base64::engine::general_purpose::STANDARD
+        .decode(normalize_base64_input(data))
         .map_err(|e| format!("Base64 error: {}", e))?;
 
     if ciphertext.len() % bs != 0 || ciphertext.is_empty() {

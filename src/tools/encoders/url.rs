@@ -11,6 +11,7 @@ pub struct UrlEncoder {
     encode_mode: bool,
     multiline: bool,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for UrlEncoder {
@@ -22,6 +23,7 @@ impl Default for UrlEncoder {
             encode_mode: false,
             multiline: false,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -41,6 +43,9 @@ impl Tool for UrlEncoder {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         let label_encode = tr!("label_encode");
         let label_decode = tr!("label_decode");
@@ -98,9 +103,7 @@ impl Tool for UrlEncoder {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt")) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt"), self.output.clone());
                     }
                 });
                 ui.add_space(2.0);

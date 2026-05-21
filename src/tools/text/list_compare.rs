@@ -19,6 +19,15 @@ pub struct ListComparer {
     prev_trim: bool,
     prev_empty: bool,
     pending_file: Pending<String>,
+    pending_open_target: Option<OpenListTarget>,
+    save_pending: Pending<String>,
+    save_result: String,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum OpenListTarget {
+    A,
+    B,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -72,6 +81,9 @@ impl Default for ListComparer {
             prev_trim: true,
             prev_empty: true,
             pending_file: Pending::default(),
+            pending_open_target: None,
+            save_pending: Pending::default(),
+            save_result: String::new(),
         }
     }
 }
@@ -85,8 +97,15 @@ impl Tool for ListComparer {
         let err_reading = tr!("err_error_reading");
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&err_reading) {
-                self.list_a = text;
+                match self.pending_open_target.take() {
+                    Some(OpenListTarget::A) => self.list_a = text,
+                    Some(OpenListTarget::B) => self.list_b = text,
+                    None => {}
+                }
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.save_result = text;
         }
         let total = ui.available_rect_before_wrap();
         let pad = 4.0;
@@ -131,6 +150,7 @@ impl Tool for ListComparer {
                     }
                 }
                 if ui.button(&lbl_open).clicked() {
+                    self.pending_open_target = Some(OpenListTarget::A);
                     open_file_async(&mut self.pending_file, &tr!("lc_open_a"), &tr!("save_filter_text"), &["txt"]);
                 }
                     if ui.button(&lbl_clear).clicked() {
@@ -142,9 +162,7 @@ impl Tool for ListComparer {
                     ui.ctx().copy_text(self.list_a.clone());
                 }
                 if ui.button(&lbl_save_as).clicked() && !self.list_a.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("lc_save_a")) {
-                        let _ = std::fs::write(path, &self.list_a);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("lc_save_a"), self.list_a.clone());
                 }
                 ui.separator();
                 if ui.button(&lbl_paste_b).clicked() {
@@ -154,15 +172,14 @@ impl Tool for ListComparer {
                     }
                 }
                 if ui.button(&lbl_open_b).clicked() {
-                    open_file_async(&mut self.pending_file, &tr!("lc_open_a"), &tr!("save_filter_text"), &["txt"]);
+                    self.pending_open_target = Some(OpenListTarget::B);
+                    open_file_async(&mut self.pending_file, &tr!("lc_open_b"), &tr!("save_filter_text"), &["txt"]);
                 }
                     if ui.button(&lbl_copy_b).clicked() && !self.list_b.is_empty() {
                     ui.ctx().copy_text(self.list_b.clone());
                 }
                 if ui.button(&lbl_save_b).clicked() && !self.list_b.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("lc_save_b_file")) {
-                        let _ = std::fs::write(path, &self.list_b);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("lc_save_b_file"), self.list_b.clone());
                 }
             });
         });
@@ -250,11 +267,12 @@ impl Tool for ListComparer {
                         ui.ctx().copy_text(self.result.clone());
                     }
                     if ui.button(&lbl_save_as).clicked() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("lc_save_result")) {
-                            let _ = std::fs::write(path, &self.result);
-                        }
+                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("lc_save_result"), self.result.clone());
                     }
                 });
+            }
+            if !self.save_result.is_empty() {
+                ui.colored_label(egui::Color32::from_rgb(0, 180, 0), &self.save_result);
             }
         });
     }

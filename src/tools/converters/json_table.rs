@@ -1,7 +1,7 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
-use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -19,6 +19,7 @@ pub struct JsonTable {
     sort_alpha: bool,
     flatten_nested: bool,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
 }
 
 impl Default for JsonTable {
@@ -32,6 +33,7 @@ impl Default for JsonTable {
             sort_alpha: false,
             flatten_nested: false,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
         }
     }
 }
@@ -47,6 +49,9 @@ impl Tool for JsonTable {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.error = text;
         }
         ui.horizontal(|ui| {
             ui.checkbox(&mut self.flatten_nested, tr!("jt_flatten"));
@@ -127,13 +132,13 @@ impl Tool for JsonTable {
 
                 ui.horizontal(|ui| {
                     if ui.button(tr!("btn_save_csv")).clicked() {
-                        self.save_as_file("csv", &self.to_csv(","));
+                        self.save_as_file("csv", self.to_csv(","));
                     }
                     if ui.button(tr!("btn_save_tsv")).clicked() {
-                        self.save_as_file("tsv", &self.to_csv("\t"));
+                        self.save_as_file("tsv", self.to_csv("\t"));
                     }
                     if ui.button(tr!("btn_save_json")).clicked() {
-                        self.save_as_file("json", &self.input);
+                        self.save_as_file("json", self.input.clone());
                     }
                 });
                 ui.add_space(4.0);
@@ -362,16 +367,15 @@ impl JsonTable {
         lines.join("\n")
     }
 
-    fn save_as_file(&self, ext: &str, content: &str) {
-        let path = crate::tools::async_utils::save_file_dialog(
+    fn save_as_file(&mut self, ext: &str, content: String) {
+        save_file_async(
+            &mut self.save_pending,
             &tr!("jt_save_as", ext.to_uppercase()),
             &ext.to_uppercase(),
             &[ext],
             &format!("table.{}", ext),
+            content,
         );
-        if let Some(path) = path {
-            let _ = std::fs::write(path, content);
-        }
     }
 }
 

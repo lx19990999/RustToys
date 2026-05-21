@@ -1,15 +1,30 @@
 use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
+use crate::tools::async_utils::{Pending, save_file_async};
 use std::io::{Read, Write};
 use base64::Engine;
 
-#[derive(Default)]
 pub struct GZip {
     input: String,
     output: String,
     error: String,
+    save_result: String,
     compress: bool,
+    pending_file: Pending<String>,
+}
+
+impl Default for GZip {
+    fn default() -> Self {
+        Self {
+            input: String::new(),
+            output: String::new(),
+            error: String::new(),
+            save_result: String::new(),
+            compress: false,
+            pending_file: Pending::default(),
+        }
+    }
 }
 
 impl Tool for GZip {
@@ -18,6 +33,10 @@ impl Tool for GZip {
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(text) = self.pending_file.poll() {
+            self.save_result = text;
+        }
+
         let label_compress = tr!("label_compress");
         let label_decompress = tr!("label_decompress");
         ui.horizontal(|ui| {
@@ -61,6 +80,7 @@ impl Tool for GZip {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
+                        self.save_result.clear();
                     }
                 });
                 ui.add_space(2.0);
@@ -90,11 +110,12 @@ impl Tool for GZip {
                         ui.ctx().copy_text(self.output.clone());
                     }
                     if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt")) {
-                            let _ = std::fs::write(path, &self.output);
-                        }
+                        save_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt"), self.output.clone());
                     }
                 });
+                if !self.save_result.is_empty() {
+                    ui.colored_label(egui::Color32::GREEN, &self.save_result);
+                }
                 ui.add_space(2.0);
                 let out_label = if self.compress { tr!("gzip_compressed_label") } else { tr!("gzip_decompressed_label") };
                 ui.label(&out_label);

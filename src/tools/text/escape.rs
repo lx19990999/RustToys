@@ -10,6 +10,8 @@ pub struct EscapeUnescape {
     prev_input: String,
     prev_mode: bool,
     pending_file: Pending<String>,
+    save_pending: Pending<String>,
+    save_result: String,
 }
 
 impl Default for EscapeUnescape {
@@ -21,6 +23,8 @@ impl Default for EscapeUnescape {
             prev_input: String::new(),
             prev_mode: true,
             pending_file: Pending::default(),
+            save_pending: Pending::default(),
+            save_result: String::new(),
         }
     }
 }
@@ -36,6 +40,9 @@ impl Tool for EscapeUnescape {
             if !text.starts_with(&err_reading) {
                 self.input = text;
             }
+        }
+        if let Some(text) = self.save_pending.poll() {
+            self.save_result = text;
         }
         let total = ui.available_rect_before_wrap();
         let pad = 4.0;
@@ -103,9 +110,7 @@ impl Tool for EscapeUnescape {
                     ui.ctx().copy_text(self.input.clone());
                 }
                 if ui.button(&lbl_save_as).clicked() && !self.input.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("esc_save_input")) {
-                        let _ = std::fs::write(path, &self.input);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("esc_save_input"), self.input.clone());
                 }
             });
             ui.add_space(space);
@@ -130,9 +135,10 @@ impl Tool for EscapeUnescape {
                     ui.ctx().copy_text(self.output.clone());
                 }
                 if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
-                    if let Some(path) = crate::tools::async_utils::save_file_dialog(&tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("esc_save_output")) {
-                        let _ = std::fs::write(path, &self.output);
-                    }
+                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("esc_save_output"), self.output.clone());
+                }
+                if !self.save_result.is_empty() {
+                    ui.colored_label(egui::Color32::from_rgb(0, 180, 0), &self.save_result);
                 }
             });
             ui.add_space(space);
