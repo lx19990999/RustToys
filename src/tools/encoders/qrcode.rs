@@ -19,6 +19,7 @@ pub struct QrCode {
     decode_error: String,
     decode_preview: Option<egui::TextureHandle>,
     pending_file: Pending<String>,
+    file_loaded: bool,
 }
 
 impl Default for QrCode {
@@ -36,6 +37,7 @@ impl Default for QrCode {
             decode_error: String::new(),
             decode_preview: None,
             pending_file: Pending::default(),
+            file_loaded: false,
         }
     }
 }
@@ -47,9 +49,11 @@ impl Tool for QrCode {
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        self.file_loaded = false;
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
+                self.file_loaded = true;
             }
         }
         let label_encode = tr!("label_encode");
@@ -123,7 +127,7 @@ impl QrCode {
             });
 
             // Auto-convert before rendering preview
-            if self.input != prev_input || self.ecc_level != prev_ecc {
+            if self.file_loaded || self.input != prev_input || self.ecc_level != prev_ecc {
                 self.generate_qr(cols[1].ctx());
             }
 

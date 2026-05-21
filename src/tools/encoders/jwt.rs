@@ -54,6 +54,9 @@ impl Tool for JwtDecoder {
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.token = text;
+                if !self.encode_mode {
+                    self.decode();
+                }
             }
         }
         let label_decode = tr!("label_decode");

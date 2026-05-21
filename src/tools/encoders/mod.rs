@@ -4,6 +4,7 @@ mod certificate;
 mod gzip;
 mod html;
 mod jwt;
+mod morse;
 mod qrcode;
 mod url;
 
@@ -17,6 +18,7 @@ pub fn tools() -> Vec<Box<dyn Tool>> {
         Box::new(gzip::GZip::default()),
         Box::new(html::HtmlEncoder::default()),
         Box::new(jwt::JwtDecoder::default()),
+        Box::new(morse::MorseCode::default()),
         Box::new(qrcode::QrCode::default()),
         Box::new(url::UrlEncoder::default()),
     ]

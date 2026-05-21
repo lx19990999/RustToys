@@ -4,7 +4,7 @@ A Swiss Army knife for developers, built with Rust and [egui](https://github.com
 
 ## Features
 
-30 developer tools across 7 categories, all running natively with no browser dependency.
+34 developer tools across 8 categories, all running natively with no browser dependency.
 
 ### Converters
 
@@ -15,6 +15,7 @@ A Swiss Army knife for developers, built with Rust and [egui](https://github.com
 | JSON > Table | Convert JSON arrays to tabular view, export as CSV / TSV / Markdown |
 | JSON <> YAML | Bidirectional conversion between JSON and YAML |
 | Number Base | Convert integers between binary, octal, decimal, hex |
+| YAML <> Properties | Convert between YAML and Java properties format |
 
 ### Encoders / Decoders
 
@@ -26,6 +27,7 @@ A Swiss Army knife for developers, built with Rust and [egui](https://github.com
 | GZip | Compress text to GZip or decompress GZip back to text |
 | HTML | Encode / decode HTML entities |
 | JWT | Decode and encode JSON Web Tokens, verify signatures (HS / RS / ES / PS) |
+| Morse Code | Encode / decode Morse code, auto-detects Chinese (telegraph code) and English mixed input |
 | QR Code | Generate and decode QR codes, supports SVG and PNG export |
 | URL | URL-encode / decode with multiline support |
 
@@ -71,6 +73,15 @@ A Swiss Army knife for developers, built with Rust and [egui](https://github.com
 | Markdown Preview | Live Markdown preview with GitHub-style rendering |
 | Text Comparer | LCS-based line diff between two texts |
 
+## Internationalization
+
+RustToys supports multiple languages. Currently available:
+
+- English
+- 简体中文
+
+The language can be switched at runtime via the dropdown in the top panel. The selection is persisted in the config file.
+
 ## Configuration
 
 Settings are saved to `~/.config/rusttoys.json` (Windows: `%USERPROFILE%\.config\rusttoys.json`).
@@ -79,12 +90,14 @@ Settings are saved to `~/.config/rusttoys.json` (Windows: `%USERPROFILE%\.config
 {
   "theme": "system",
   "dpi": 2.0,
+  "language": "en",
   "lastsavefolder": "/home/user/Documents"
 }
 ```
 
 - **theme** — `system`, `light` or `dark`. Applied at startup, updated on change.
 - **dpi** — Interface scale factor. Auto-detected on first launch, updated on change.
+- **language** — `en` or `zh`. Applied at startup, updated on change.
 - **lastsavefolder** — Default directory for file save dialogs, updated on each save.
 
 ## Build

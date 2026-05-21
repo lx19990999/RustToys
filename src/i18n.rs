@@ -525,6 +525,12 @@ fn en(key: &str) -> Option<&'static str> {
         "url_name" => Some("URL Encoder / Decoder"),
         "url_desc" => Some("Encode or decode URL/URI components"),
 
+        // Morse Code
+        "morse_name" => Some("Morse Code"),
+        "morse_desc" => Some("Encode text to Morse code or decode Morse code to text"),
+        "morse_save_default" => Some("morse_output.txt"),
+        "morse_invalid_char" => Some("Invalid Morse code: {}"),
+
         // ══════════════════════════════════════════════════════════════════════
         // ENCRYPTION
         // ══════════════════════════════════════════════════════════════════════
@@ -1325,6 +1331,11 @@ fn zh(key: &str) -> Option<String> {
 
         "url_name" => Some("URL 编码/解码器".to_string()),
         "url_desc" => Some("编码或解码 URL/URI 组件".to_string()),
+
+        "morse_name" => Some("摩尔斯电码".to_string()),
+        "morse_desc" => Some("将文本编码为摩尔斯电码或将摩尔斯电码解码为文本".to_string()),
+        "morse_save_default" => Some("摩尔斯电码输出.txt".to_string()),
+        "morse_invalid_char" => Some("无效的摩尔斯电码: {}".to_string()),
 
         // Encryption
         "sym_name" => Some("对称加密 (AES / DES)".to_string()),
