@@ -4,7 +4,7 @@ A Swiss Army knife for developers, built with Rust and [egui](https://github.com
 
 ## Features
 
-34 developer tools across 8 categories, all running natively with no browser dependency.
+35 developer tools across 9 categories, all running natively with no browser dependency.
 
 ### Converters
 
@@ -72,6 +72,12 @@ A Swiss Army knife for developers, built with Rust and [egui](https://github.com
 | List Comparer | Compare two lists with set operations (intersection, difference, union) |
 | Markdown Preview | Live Markdown preview with GitHub-style rendering |
 | Text Comparer | LCS-based line diff between two texts |
+
+### Network
+
+| Tool | Description |
+|------|-------------|
+| Ping Speed Test | Ping multiple hosts asynchronously, display latency and status |
 
 ## Internationalization
 

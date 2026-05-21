@@ -971,6 +971,27 @@ fn en(key: &str) -> Option<&'static str> {
         "tc_copy_diff" => Some("Copy Diff"),
         "tc_save_diff" => Some("diff_result.txt"),
 
+        // Network
+        "cat_network" => Some("Network"),
+        "ping_name" => Some("Ping Speed Test"),
+        "ping_desc" => Some("Ping multiple hosts asynchronously, display latency and status"),
+        "ping_save_default" => Some("ping_result.txt"),
+        "ping_btn_start" => Some("Start"),
+        "ping_btn_stop" => Some("Stop"),
+        "ping_host" => Some("Host"),
+        "ping_status" => Some("Status"),
+        "ping_time" => Some("Time (ms)"),
+        "ping_detail" => Some("Detail"),
+        "ping_ok" => Some("OK"),
+        "ping_fail" => Some("FAIL"),
+        "ping_timeout" => Some("Timeout"),
+        "ping_testing" => Some("Testing..."),
+        "ping_done" => Some("Done"),
+        "ping_no_input" => Some("Please enter at least one host"),
+        "ping_header" => Some("Host                          Status      Time(ms)    Detail"),
+        "ping_sort_input" => Some("Input Order"),
+        "ping_sort_latency" => Some("By Latency"),
+
         // Fallback
         _ => None,
     }
@@ -1737,6 +1758,27 @@ fn zh(key: &str) -> Option<String> {
         "tc_diff_result" => Some("差异结果".to_string()),
         "tc_copy_diff" => Some("复制差异".to_string()),
         "tc_save_diff" => Some("差异结果.txt".to_string()),
+
+        // Network
+        "cat_network" => Some("网络".to_string()),
+        "ping_name" => Some("Ping 测速".to_string()),
+        "ping_desc" => Some("异步 Ping 多个主机，显示延迟和状态".to_string()),
+        "ping_save_default" => Some("ping_结果.txt".to_string()),
+        "ping_btn_start" => Some("开始".to_string()),
+        "ping_btn_stop" => Some("停止".to_string()),
+        "ping_host" => Some("主机".to_string()),
+        "ping_status" => Some("状态".to_string()),
+        "ping_time" => Some("耗时(ms)".to_string()),
+        "ping_detail" => Some("详情".to_string()),
+        "ping_ok" => Some("成功".to_string()),
+        "ping_fail" => Some("失败".to_string()),
+        "ping_timeout" => Some("超时".to_string()),
+        "ping_testing" => Some("测试中...".to_string()),
+        "ping_done" => Some("完成".to_string()),
+        "ping_no_input" => Some("请至少输入一个主机地址".to_string()),
+        "ping_header" => Some("主机                            状态        耗时(ms)    详情".to_string()),
+        "ping_sort_input" => Some("输入顺序".to_string()),
+        "ping_sort_latency" => Some("延迟排序".to_string()),
 
         // Fallback
         _ => None,

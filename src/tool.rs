@@ -19,6 +19,7 @@ pub enum ToolCategory {
     Graphic,
     Testers,
     Text,
+    Network,
 }
 
 impl ToolCategory {
@@ -32,6 +33,7 @@ impl ToolCategory {
             Self::Graphic => "cat_graphic",
             Self::Testers => "cat_testers",
             Self::Text => "cat_text",
+            Self::Network => "cat_network",
         };
         tr!(key)
     }
@@ -46,6 +48,7 @@ impl ToolCategory {
             Self::Graphic,
             Self::Testers,
             Self::Text,
+            Self::Network,
         ]
     }
 }

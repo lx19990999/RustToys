@@ -7,6 +7,7 @@ pub mod generators;
 pub mod graphic;
 pub mod testers;
 pub mod text;
+pub mod network;
 
 use crate::tool::Tool;
 
@@ -20,5 +21,6 @@ pub fn all_tools() -> Vec<Box<dyn Tool>> {
     tools.extend(graphic::tools());
     tools.extend(testers::tools());
     tools.extend(text::tools());
+    tools.extend(network::tools());
     tools
 }
