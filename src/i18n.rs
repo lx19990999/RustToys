@@ -163,6 +163,7 @@ fn en(key: &str) -> Option<&'static str> {
         "dpi_label" => Some("DPI: {:.1}x"),
         "theme_label" => Some("Theme: {}"),
         "quit" => Some("Quit"),
+        "autostart" => Some("Start on boot"),
         "tools_count" => Some("Tools: {}"),
         "active_label" => Some("Active: {}"),
 
@@ -1046,6 +1047,7 @@ fn zh(key: &str) -> Option<String> {
         "dpi_label" => Some("DPI: {:.1}x".to_string()),
         "theme_label" => Some("主题: {}".to_string()),
         "quit" => Some("退出".to_string()),
+        "autostart" => Some("开机自启动".to_string()),
         "tools_count" => Some("工具: {}".to_string()),
         "active_label" => Some("当前: {}".to_string()),
 

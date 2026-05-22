@@ -33,6 +33,8 @@ pub struct Config {
     pub lastsavefolder: Option<String>,
     #[serde(default)]
     pub language: Language,
+    #[serde(default)]
+    pub autostart: bool,
 }
 
 impl Default for Config {
@@ -42,6 +44,7 @@ impl Default for Config {
             dpi: 0.0,
             lastsavefolder: None,
             language: Language::default(),
+            autostart: false,
         }
     }
 }

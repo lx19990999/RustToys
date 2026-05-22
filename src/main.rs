@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 mod app;
+mod autostart;
 mod config;
 mod i18n;
 mod sidebar;
@@ -9,6 +10,11 @@ mod tools;
 
 fn main() -> eframe::Result {
     config::init();
+
+    let cfg = config::get();
+    if cfg.autostart {
+        let _ = autostart::set(true);
+    }
 
     let native_options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()

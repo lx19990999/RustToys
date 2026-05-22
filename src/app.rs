@@ -13,6 +13,7 @@ pub struct RustToysApp {
     dpi_initialized: bool,
     theme_mode: config::ThemeMode,
     language: Language,
+    autostart: bool,
 }
 
 impl RustToysApp {
@@ -30,6 +31,7 @@ impl RustToysApp {
             dpi_initialized,
             theme_mode: cfg.theme,
             language: cfg.language,
+            autostart: cfg.autostart,
         }
     }
 
@@ -74,8 +76,6 @@ impl eframe::App for RustToysApp {
 
         // Apply theme
         self.apply_theme(ctx);
-
-        let ppp = self.dpi_scale;
 
         // Top panel
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -125,6 +125,18 @@ impl eframe::App for RustToysApp {
                         config::update(|cfg| cfg.theme = self.theme_mode);
                     }
                     ui.separator();
+
+                    // Autostart checkbox
+                    let mut autostart = self.autostart;
+                    if ui.checkbox(&mut autostart, tr!("autostart")).changed() {
+                        if let Err(e) = crate::autostart::set(autostart) {
+                            eprintln!("Failed to set autostart: {}", e);
+                        }
+                        self.autostart = autostart;
+                        config::update(|cfg| cfg.autostart = autostart);
+                    }
+                    ui.separator();
+
                     if ui.button(tr!("quit")).clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
@@ -133,8 +145,9 @@ impl eframe::App for RustToysApp {
         });
 
         // Left side panel
+        let sidebar_width = ctx.screen_rect().width() / 4.0;
         egui::SidePanel::left("side_panel")
-            .default_width(220.0 * ppp.max(1.0))
+            .default_width(sidebar_width)
             .resizable(true)
             .show(ctx, |ui| {
                 self.sidebar.show(ui, &mut self.tools);
