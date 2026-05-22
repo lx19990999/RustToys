@@ -11,6 +11,8 @@ assets = [
     ["target/release/rusttoys", "usr/bin/", "755"],
     ["assets/NotoSansSC-Regular.ttf", "usr/share/rusttoys/", "644"],
     ["assets/FONT-LICENSE", "usr/share/rusttoys/", "644"],
+    ["assets/icon.png", "usr/share/pixmaps/rusttoys.png", "644"],
+    ["assets/rusttoys.desktop", "usr/share/applications/", "644"],
 ]
 section = "utils"
 priority = "optional"
@@ -21,6 +23,8 @@ assets = [
     { source = "target/release/rusttoys", dest = "/usr/bin/rusttoys", mode = "755" },
     { source = "assets/NotoSansSC-Regular.ttf", dest = "/usr/share/rusttoys/NotoSansSC-Regular.ttf", mode = "644" },
     { source = "assets/FONT-LICENSE", dest = "/usr/share/rusttoys/FONT-LICENSE", mode = "644" },
+    { source = "assets/icon.png", dest = "/usr/share/pixmaps/rusttoys.png", mode = "644" },
+    { source = "assets/rusttoys.desktop", dest = "/usr/share/applications/rusttoys.desktop", mode = "644" },
 ]
 
 [dependencies]
@@ -62,3 +66,6 @@ rsa = "0.9"
 tungstenite = { version = "0.21", features = ["native-tls"] }
 if-addrs = "0.7"
 mac_address = "1"
+
+[build-dependencies]
+winresource = "0.1"

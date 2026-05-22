@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=RustToys
+Comment=A Swiss Army knife for developers
+Exec=rusttoys
+Icon=rusttoys
+Terminal=false
+Categories=Development;Utility;

@@ -13,7 +13,8 @@ fn main() -> eframe::Result {
     let native_options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_inner_size([1400.0, 900.0])
-            .with_title("RustToys"),
+            .with_title("RustToys")
+            .with_icon(load_icon()),
         ..Default::default()
     };
 
@@ -42,4 +43,17 @@ fn install_cjk_font(ctx: &eframe::egui::Context) {
             InsertFontFamily { family: FontFamily::Monospace, priority: FontPriority::Lowest },
         ],
     ));
+}
+
+fn load_icon() -> eframe::egui::IconData {
+    const ICON_BYTES: &[u8] = include_bytes!("../assets/icon.png");
+    let img = image::load_from_memory(ICON_BYTES)
+        .expect("Failed to load icon")
+        .to_rgba8();
+    let (width, height) = img.dimensions();
+    eframe::egui::IconData {
+        rgba: img.into_raw(),
+        width,
+        height,
+    }
 }
