@@ -2,6 +2,7 @@ use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::io_layout;
 
 
 pub struct UrlEncoder {
@@ -47,6 +48,7 @@ impl Tool for UrlEncoder {
         if let Some(text) = self.save_pending.poll() {
             self.error = text;
         }
+
         let label_encode = tr!("label_encode");
         let label_decode = tr!("label_decode");
         ui.horizontal(|ui| {
@@ -55,74 +57,70 @@ impl Tool for UrlEncoder {
         });
         ui.add_space(4.0);
 
-        ui.columns(2, |cols| {
-            // Left: Input
-            cols[0].vertical(|ui| {
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open_file = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_multiline = tr!("label_multiline");
+        let lbl_input = tr!("label_input");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_output = tr!("label_output");
+        let lbl_save_title = tr!("save_as_title");
+        let lbl_save_filter = tr!("save_filter_text");
+        let lbl_default_output = tr!("default_output_txt");
+        let err_clipboard = tr!("err_clipboard");
+
+        let opt_h = io_layout::option_row_height(ui);
+
+        io_layout::show_error(ui, &self.error);
+        io_layout::two_column_io(ui, |ui, w, col| match col {
+            io_layout::IoColumn::Left => {
                 ui.horizontal(|ui| {
-                    if ui.button(tr!("btn_paste")).clicked() {
+                    if ui.button(&lbl_paste).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = tr!("err_clipboard", e),
+                            Err(e) => self.error = err_clipboard.replace("{}", &e.to_string()),
                         }
                     }
-                    if ui.button(tr!("btn_open_file")).clicked() {
-                        open_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"]);
+                    if ui.button(&lbl_open_file).clicked() {
+                        open_file_async(&mut self.pending_file, &lbl_save_title, &lbl_save_filter, &["txt"]);
                     }
-                    if ui.button(tr!("btn_clear")).clicked() {
+                    if ui.button(&lbl_clear).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
                     }
                 });
-                ui.add_space(2.0);
-                ui.checkbox(&mut self.multiline, tr!("label_multiline"));
-                ui.add_space(2.0);
-                ui.label(tr!("label_input"));
-
-                egui::ScrollArea::vertical()
-                    .id_salt("url_input_scroll")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::TextEdit::multiline(&mut self.input)
-                                .desired_width(f32::INFINITY)
-                                .font(egui::TextStyle::Monospace),
-                        );
-                    });
-            });
-
-            // Right: Output
-            cols[1].vertical(|ui| {
-                if !self.error.is_empty() {
-                    ui.colored_label(egui::Color32::RED, &self.error);
-                    ui.add_space(4.0);
-                }
-
+                ui.add_space(io_layout::ROW_GAP);
+                ui.checkbox(&mut self.multiline, &lbl_multiline);
+                ui.add_space(io_layout::ROW_GAP);
+                ui.label(&lbl_input);
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::multiline_field(ui, w, "url_input_scroll", &mut self.input);
+            }
+            io_layout::IoColumn::Right => {
                 ui.horizontal(|ui| {
-                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
+                    if ui.button(&lbl_copy).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("default_output_txt"), self.output.clone());
+                    if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
+                        crate::tools::async_utils::save_file_async(
+                            &mut self.save_pending,
+                            &lbl_save_title,
+                            &lbl_save_filter,
+                            &["txt"],
+                            &lbl_default_output,
+                            self.output.clone(),
+                        );
                     }
                 });
-                ui.add_space(2.0);
-                ui.label(tr!("label_output"));
-
-                egui::ScrollArea::vertical()
-                    .id_salt("url_output_scroll")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::TextEdit::multiline(&mut self.output)
-                                .desired_width(f32::INFINITY)
-                                .font(egui::TextStyle::Monospace),
-                        );
-                    });
-            });
+                io_layout::row_spacer(ui, opt_h + io_layout::ROW_GAP);
+                ui.label(&lbl_output);
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::multiline_field(ui, w, "url_output_scroll", &mut self.output);
+            }
         });
 
-        // Auto-convert
         if self.input != prev_input || self.encode_mode != prev_mode || self.multiline != prev_multiline {
             self.convert();
         }
@@ -136,7 +134,6 @@ impl UrlEncoder {
             self.output.clear();
             return;
         }
-
         if self.multiline {
             let lines: Vec<String> = self.input.lines().map(|line| {
                 if self.encode_mode {

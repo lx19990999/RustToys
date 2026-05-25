@@ -122,13 +122,45 @@ impl ColorBlindness {
         }
     }
 
+    /// Fixed height for column titles (two lines) so preview images align across columns.
+    fn column_title_height(ui: &egui::Ui) -> f32 {
+        let font_id = egui::FontId::proportional(13.0);
+        let line_h = ui.fonts(|f| f.row_height(&font_id));
+        line_h * 2.0 + ui.spacing().item_spacing.y
+    }
+
+    fn show_column_title(ui: &mut egui::Ui, col_w: f32, title_h: f32, label: &str) {
+        ui.allocate_ui_with_layout(
+            egui::vec2(col_w, title_h),
+            egui::Layout::top_down(egui::Align::Center),
+            |ui| {
+                ui.set_width(col_w);
+                ui.set_min_height(title_h);
+                ui.set_max_height(title_h);
+                ui.vertical_centered(|ui| {
+                    ui.label(egui::RichText::new(label).strong().size(13.0));
+                });
+            },
+        );
+    }
+
+    /// Scale image to fit within the column's available width and height.
     fn show_image(ui: &mut egui::Ui, tex: &egui::TextureHandle, w: u32, h: u32) {
-        let avail = ui.available_width().min(280.0);
-        let aspect = h as f32 / w as f32;
-        let dw = avail;
-        let dh = avail * aspect;
-        let max_h = 250.0;
-        let (dw, dh) = if dh > max_h { (max_h / aspect, max_h) } else { (dw, dh) };
+        let max_w = ui.available_width().max(1.0);
+        let max_h = ui.available_height().max(1.0);
+        let aspect = h as f32 / w.max(1) as f32;
+
+        let mut dw = max_w;
+        let mut dh = max_w * aspect;
+        if dh > max_h {
+            dh = max_h;
+            dw = max_h / aspect;
+        }
+        if dw > max_w {
+            dw = max_w;
+            dh = max_w * aspect;
+        }
+
         ui.add(egui::Image::new(egui::load::SizedTexture::new(
             tex.id(),
             egui::Vec2::new(dw, dh),
@@ -174,38 +206,73 @@ impl Tool for ColorBlindness {
             let labels = [&lbl_original, &lbl_protanopia, &lbl_deuteranopia, &lbl_tritanopia];
 
             ui.add_space(8.0);
-            ui.columns(4, |cols| {
+            let lbl_save_as = tr!("btn_save_as");
+            let title = tr!("save_as_title");
+            let filter_image = tr!("cb_filter_image");
+            let default_name = tr!("cb_save_default");
+
+            let panel_h = ui.available_height().max(200.0);
+            let title_h = Self::column_title_height(ui);
+            let btn_h = ui.spacing().interact_size.y;
+            let img_h = (panel_h - title_h - btn_h - 12.0).max(80.0);
+
+            ui.columns(4, |columns| {
                 for i in 0..4 {
-                    cols[i].vertical_centered(|ui| {
-                        ui.label(egui::RichText::new(labels[i]).strong().size(13.0));
-                        ui.add_space(4.0);
-                        if let Some(ref tex) = self.textures[i] {
-                            Self::show_image(ui, tex, self.img_width, self.img_height);
-                        }
-                        ui.add_space(4.0);
-                        let lbl_save_as = tr!("btn_save_as");
-                        if ui.button(lbl_save_as).clicked() {
-                            let title = tr!("save_as_title");
-                            let filter_image = tr!("cb_filter_image");
-                            let default_name = tr!("cb_save_default");
-                            if let Some(img) = image::RgbaImage::from_raw(
-                                self.img_width,
-                                self.img_height,
-                                self.pixel_sets[i].to_vec(),
-                            ) {
-                                let mut buf = Vec::new();
-                                let encoder = image::codecs::png::PngEncoder::new(&mut buf);
-                                if encoder.write_image(
-                                    img.as_raw(),
+                    let col_w = columns[i].available_width();
+                    columns[i].allocate_ui_with_layout(
+                        egui::vec2(col_w, panel_h),
+                        egui::Layout::top_down(egui::Align::Center),
+                        |ui| {
+                            ui.set_width(col_w);
+                            ui.set_min_width(col_w);
+                            ui.set_max_width(col_w);
+                            Self::show_column_title(ui, col_w, title_h, labels[i]);
+                            ui.add_space(6.0);
+                            ui.allocate_ui_with_layout(
+                                egui::vec2(col_w, img_h),
+                                egui::Layout::top_down(egui::Align::Center),
+                                |ui| {
+                                    ui.set_width(col_w);
+                                    ui.set_max_width(col_w);
+                                    ui.set_height(img_h);
+                                    ui.set_max_height(img_h);
+                                    if let Some(ref tex) = self.textures[i] {
+                                        Self::show_image(ui, tex, self.img_width, self.img_height);
+                                    }
+                                },
+                            );
+
+                            ui.add_space(6.0);
+                            if ui.button(&lbl_save_as).clicked() {
+                                if let Some(img) = image::RgbaImage::from_raw(
                                     self.img_width,
                                     self.img_height,
-                                    image::ColorType::Rgba8.into(),
-                                ).is_ok() {
-                                    save_file_binary_async(&mut self.save_pending, &title, &filter_image, &["png"], &default_name, buf);
+                                    self.pixel_sets[i].to_vec(),
+                                ) {
+                                    let mut buf = Vec::new();
+                                    let encoder = image::codecs::png::PngEncoder::new(&mut buf);
+                                    if encoder
+                                        .write_image(
+                                            img.as_raw(),
+                                            self.img_width,
+                                            self.img_height,
+                                            image::ColorType::Rgba8.into(),
+                                        )
+                                        .is_ok()
+                                    {
+                                        save_file_binary_async(
+                                            &mut self.save_pending,
+                                            &title,
+                                            &filter_image,
+                                            &["png"],
+                                            &default_name,
+                                            buf,
+                                        );
+                                    }
                                 }
                             }
-                        }
-                    });
+                        },
+                    );
                 }
             });
         }

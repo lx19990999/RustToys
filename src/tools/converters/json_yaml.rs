@@ -37,6 +37,10 @@ impl Tool for JsonYaml {
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let prev_input = self.input.clone();
+        let prev_to_yaml = self.to_yaml;
+        let prev_indent = self.indent;
+
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
@@ -55,10 +59,6 @@ impl Tool for JsonYaml {
             ui.add(egui::DragValue::new(&mut self.indent).range(0..=8).speed(1));
         });
         ui.add_space(4.0);
-
-        let prev_input = self.input.clone();
-        let prev_to_yaml = self.to_yaml;
-        let prev_indent = self.indent;
 
         ui.columns(2, |cols| {
             // Left: Input panel

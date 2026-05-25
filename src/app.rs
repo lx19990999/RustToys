@@ -162,7 +162,18 @@ impl eframe::App for RustToysApp {
                 ui.label(tool.description());
                 ui.separator();
                 ui.add_space(8.0);
-                tool.ui(ui);
+                let panel_h = ui.available_height().max(80.0);
+                let panel_w = ui.available_width();
+                ui.allocate_ui_with_layout(
+                    egui::vec2(panel_w, panel_h),
+                    egui::Layout::top_down(egui::Align::LEFT),
+                    |ui| {
+                        ui.set_width(panel_w);
+                        ui.set_height(panel_h);
+                        ui.set_max_height(panel_h);
+                        tool.ui(ui);
+                    },
+                );
             }
         });
 

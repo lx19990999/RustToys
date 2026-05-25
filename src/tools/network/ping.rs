@@ -6,6 +6,7 @@ use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
+use crate::tools::io_layout;
 
 struct PingResult {
     host: String,
@@ -60,34 +61,6 @@ impl Tool for PingSpeedTest {
             self.error = text;
         }
 
-        ui.horizontal(|ui| {
-            if ui.button(tr!("btn_paste")).clicked() {
-                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
-                    Ok(text) => self.input = text,
-                    Err(e) => self.error = tr!("err_clipboard", e),
-                }
-            }
-            if ui.button(tr!("btn_open_file")).clicked() {
-                open_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"]);
-            }
-            if ui.button(tr!("btn_clear")).clicked() {
-                self.input.clear();
-                self.output.clear();
-                self.error.clear();
-            }
-            ui.add_space(8.0);
-
-            if self.running {
-                if ui.button(tr!("ping_btn_stop")).clicked() {
-                    self.running = false;
-                }
-            } else {
-                if ui.button(tr!("ping_btn_start")).clicked() {
-                    self.start_test();
-                }
-            }
-        });
-        ui.add_space(4.0);
 
         // Poll results
         if self.running {
@@ -143,57 +116,220 @@ impl Tool for PingSpeedTest {
             }
         }
 
-        if !self.error.is_empty() {
-            ui.colored_label(egui::Color32::RED, &self.error);
-            ui.add_space(4.0);
-        }
+        let lbl_input = tr!("label_input");
+        let lbl_output = tr!("label_output");
+        let lbl_input_order = tr!("ping_sort_input");
+        let lbl_latency = tr!("ping_sort_latency");
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_start = tr!("ping_btn_start");
+        let lbl_stop = tr!("ping_btn_stop");
 
-        ui.columns(2, |cols| {
-            cols[0].vertical(|ui| {
-                ui.label(tr!("label_input"));
-                egui::ScrollArea::vertical()
-                    .id_salt("ping_input_scroll")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::TextEdit::multiline(&mut self.input)
-                                .desired_width(f32::INFINITY)
-                                .font(egui::TextStyle::Monospace)
-                                .code_editor(),
+        io_layout::show_error(ui, &self.error);
+        let (opt_h, body_h, field_h) = io_layout::aligned_io_heights(ui);
+        io_layout::two_column_io_with_height(ui, body_h, |ui, w, col| match col {
+            io_layout::IoColumn::Left => {
+                io_layout::column_header_row(ui, w, opt_h, |ui| {
+                    ui.label(egui::RichText::new(&lbl_input).strong());
+                });
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::toolbar_row(ui, w, opt_h, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                    if ui.button(&lbl_paste).clicked() {
+                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                            Ok(text) => self.input = text,
+                            Err(e) => self.error = tr!("err_clipboard", e),
+                        }
+                    }
+                    if ui.button(&lbl_open).clicked() {
+                        open_file_async(
+                            &mut self.pending_file,
+                            &tr!("save_as_title"),
+                            &tr!("save_filter_text"),
+                            &["txt"],
+                        );
+                    }
+                    if ui.button(&lbl_clear).clicked() {
+                        self.input.clear();
+                        self.output.clear();
+                        self.error.clear();
+                    }
+                    if self.running {
+                        if ui.button(&lbl_stop).clicked() {
+                            self.running = false;
+                        }
+                    } else if ui.button(&lbl_start).clicked() {
+                        self.start_test();
+                    }
+                    });
+                });
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::multiline_field_at(ui, w, field_h, "ping_input_scroll", &mut self.input);
+            }
+            io_layout::IoColumn::Right => {
+                io_layout::column_header_row(ui, w, opt_h, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(&lbl_output).strong());
+                        ui.with_layout(
+                            egui::Layout::right_to_left(egui::Align::Center),
+                            |ui| {
+                                ui.radio_value(&mut self.sort_by_latency, true, &lbl_latency);
+                                ui.radio_value(&mut self.sort_by_latency, false, &lbl_input_order);
+                            },
                         );
                     });
-            });
-
-            cols[1].vertical(|ui| {
-                ui.horizontal(|ui| {
-                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
+                });
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::toolbar_row(ui, w, opt_h, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                    if ui.button(&lbl_copy).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("ping_save_default"), self.output.clone());
-                    }
-                    ui.add_space(8.0);
-                    let lbl_input_order = tr!("ping_sort_input");
-                    let lbl_latency = tr!("ping_sort_latency");
-                    ui.radio_value(&mut self.sort_by_latency, false, &lbl_input_order);
-                    ui.radio_value(&mut self.sort_by_latency, true, &lbl_latency);
-                });
-                ui.add_space(2.0);
-                ui.label(tr!("label_output"));
-                egui::ScrollArea::vertical()
-                    .id_salt("ping_output_scroll")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::TextEdit::multiline(&mut self.output)
-                                .desired_width(f32::INFINITY)
-                                .font(egui::TextStyle::Monospace)
-                                .code_editor(),
+                    if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
+                        save_file_async(
+                            &mut self.save_pending,
+                            &tr!("save_as_title"),
+                            &tr!("save_filter_text"),
+                            &["txt"],
+                            &tr!("ping_save_default"),
+                            self.output.clone(),
                         );
+                    }
                     });
-            });
+                });
+                ui.add_space(io_layout::ROW_GAP);
+                ping_scroll_output(ui, w, field_h, self);
+            }
         });
     }
+}
+
+fn ping_scroll_output(ui: &mut egui::Ui, col_w: f32, h: f32, tool: &PingSpeedTest) {
+    ui.allocate_ui_with_layout(
+        egui::vec2(col_w, h),
+        egui::Layout::top_down(egui::Align::LEFT),
+        |ui| {
+            ui.set_width(col_w);
+            ui.set_max_width(col_w);
+            ui.set_height(h);
+            ui.set_max_height(h);
+            egui::ScrollArea::vertical()
+                .id_salt("ping_output_scroll")
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.set_width(col_w);
+                    if let Ok(results) = tool.results.lock() {
+                        if !results.is_empty() {
+                            render_ping_results(ui, col_w, &results, tool.sort_by_latency, tool.running);
+                            return;
+                        }
+                    }
+                    if !tool.output.is_empty() {
+                        ui.label(
+                            egui::RichText::new(&tool.output)
+                                .monospace()
+                                .color(ui.visuals().text_color()),
+                        );
+                    }
+                });
+        },
+    );
+}
+
+fn render_ping_results(
+    ui: &mut egui::Ui,
+    col_w: f32,
+    results: &[Option<PingResult>],
+    sort_by_latency: bool,
+    running: bool,
+) {
+    let lbl_host = tr!("ping_host");
+    let lbl_status = tr!("ping_status");
+    let lbl_time = tr!("ping_time");
+    let lbl_detail = tr!("ping_detail");
+    let lbl_ok = tr!("ping_ok");
+    let lbl_fail = tr!("ping_fail");
+    let lbl_testing = tr!("ping_testing");
+
+    ui.set_min_width(col_w);
+    ui.set_max_width(col_w);
+
+    let ordered: Vec<Option<&PingResult>> = if sort_by_latency {
+        let mut completed: Vec<&PingResult> = results.iter().filter_map(|s| s.as_ref()).collect();
+        completed.sort_by(|a, b| {
+            let ta = a.time_ms.unwrap_or(f64::MAX);
+            let tb = b.time_ms.unwrap_or(f64::MAX);
+            ta.partial_cmp(&tb).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        completed
+            .into_iter()
+            .map(Some)
+            .chain(results.iter().filter(|s| s.is_none()).map(|_| None))
+            .collect()
+    } else {
+        results.iter().map(|s| s.as_ref()).collect()
+    };
+
+    egui::Grid::new("ping_results_table")
+        .num_columns(4)
+        .spacing([10.0, 6.0])
+        .striped(true)
+        .min_col_width(52.0)
+        .show(ui, |ui| {
+            ui.label(egui::RichText::new(&lbl_host).strong());
+            ui.label(egui::RichText::new(&lbl_status).strong());
+            ui.label(egui::RichText::new(&lbl_time).strong());
+            ui.label(egui::RichText::new(&lbl_detail).strong());
+            ui.end_row();
+
+            for slot in &ordered {
+                match slot {
+                    Some(r) => ping_grid_row(ui, r, &lbl_ok, &lbl_fail),
+                    None => {
+                        ui.label(egui::RichText::new("…").weak());
+                        ui.label("");
+                        ui.label("");
+                        ui.label("");
+                        ui.end_row();
+                    }
+                }
+            }
+        });
+
+    if running && results.iter().any(|s| s.is_none()) {
+        ui.add_space(6.0);
+        ui.label(egui::RichText::new(&lbl_testing).italics().weak());
+    } else if !running && results.iter().all(|s| s.is_some()) && !results.is_empty() {
+        ui.add_space(6.0);
+        ui.label(egui::RichText::new(tr!("ping_done")).strong());
+    }
+}
+
+fn ping_grid_row(ui: &mut egui::Ui, r: &PingResult, lbl_ok: &str, lbl_fail: &str) {
+    let status = if r.success { lbl_ok } else { lbl_fail };
+    let status_color = if r.success {
+        egui::Color32::from_rgb(0, 140, 0)
+    } else {
+        ui.visuals().error_fg_color
+    };
+    let time_str = r
+        .time_ms
+        .map(|t| format!("{:.1}", t))
+        .unwrap_or_else(|| "-".to_string());
+
+    ui.label(egui::RichText::new(&r.host).monospace());
+    ui.colored_label(status_color, status);
+    ui.label(egui::RichText::new(time_str).monospace());
+    ui.label(
+        egui::RichText::new(&r.detail)
+            .small()
+            .weak()
+            .monospace(),
+    );
+    ui.end_row();
 }
 
 impl PingSpeedTest {

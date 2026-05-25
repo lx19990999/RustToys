@@ -2,6 +2,7 @@ use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
 use crate::tools::async_utils::Pending;
+use crate::tools::io_layout;
 
 pub struct UuidGenerator {
     output: String,
@@ -108,14 +109,9 @@ impl Tool for UuidGenerator {
         });
 
         ui.add_space(4.0);
-        ui.label(tr!("label_output"));
-        ui.add(
-            egui::TextEdit::multiline(&mut self.output)
-                .desired_width(f32::INFINITY)
-                .desired_rows(8),
-        );
-        if !self.output.is_empty() {
-            ui.horizontal(|ui| {
+        ui.horizontal(|ui| {
+            ui.label(tr!("label_output"));
+            if !self.output.is_empty() {
                 let lbl_copy = tr!("btn_copy");
                 if ui.button(lbl_copy).clicked() {
                     ui.ctx().copy_text(self.output.clone());
@@ -125,10 +121,19 @@ impl Tool for UuidGenerator {
                     let title = tr!("save_as_title");
                     let filter_text = tr!("save_filter_text");
                     let default_name = tr!("uuid_save_default");
-                    crate::tools::async_utils::save_file_async(&mut self.pending_file, &title, &filter_text, &["txt"], &default_name, self.output.clone());
+                    crate::tools::async_utils::save_file_async(
+                        &mut self.pending_file,
+                        &title,
+                        &filter_text,
+                        &["txt"],
+                        &default_name,
+                        self.output.clone(),
+                    );
                 }
-            });
-        }
+            }
+        });
+        ui.add_space(io_layout::ROW_GAP);
+        io_layout::multiline_field(ui, ui.available_width(), "uuid_output_scroll", &mut self.output);
         if !self.save_result.is_empty() {
             ui.colored_label(egui::Color32::GREEN, &self.save_result);
         }

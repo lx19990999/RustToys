@@ -7,6 +7,7 @@ use eframe::egui;
 use crate::tool::{Tool, ToolCategory};
 use crate::tr;
 use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
+use crate::tools::io_layout;
 
 // ── Messages between handler thread and UI ───────────────────────────
 
@@ -160,6 +161,9 @@ impl Tool for UdpTool {
 
         let is_bound = self.bound.load(Ordering::Relaxed);
 
+        ui.group(|ui| {
+            ui.set_width(ui.available_width());
+
         // ── Row 1: Local Interface + Port ─────────────────────────────
         ui.horizontal(|ui| {
             ui.label(tr!("udp_local_ip"));
@@ -222,78 +226,85 @@ impl Tool for UdpTool {
                 );
             });
         });
-        ui.add_space(2.0);
+        }); // config group
 
-        // ── Row 4: Action buttons ────────────────────────────────────
-        ui.horizontal(|ui| {
-            if ui.button(tr!("btn_paste")).clicked() {
-                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
-                    Ok(text) => self.send_input = text,
-                    Err(e) => self.error = tr!("err_clipboard", e),
-                }
-            }
-            if ui.button(tr!("btn_open_file")).clicked() {
-                open_file_async(&mut self.pending_file, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"]);
-            }
-            if ui.button(tr!("btn_clear")).clicked() {
-                self.send_input.clear();
-                self.output.clear();
-                self.error.clear();
-            }
-            ui.add_space(8.0);
-            ui.add_enabled_ui(is_bound, |ui| {
-                if ui.button(tr!("udp_btn_send")).clicked() && !self.send_input.is_empty() {
-                    self.send_msg();
-                }
-            });
-        });
+        ui.add_space(4.0);
+        ui.separator();
         ui.add_space(4.0);
 
-        // ── Row 5: Two columns ───────────────────────────────────────
-        if !self.error.is_empty() {
-            ui.colored_label(egui::Color32::RED, &self.error);
-            ui.add_space(4.0);
-        }
+        let lbl_input = tr!("label_input");
+        let lbl_output = tr!("label_output");
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_send = tr!("udp_btn_send");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
 
-        ui.columns(2, |cols| {
-            // Left: send area
-            cols[0].vertical(|ui| {
-                ui.label(tr!("label_input"));
-                egui::ScrollArea::vertical()
-                    .id_salt("udp_input_scroll")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::TextEdit::multiline(&mut self.send_input)
-                                .desired_width(f32::INFINITY)
-                                .font(egui::TextStyle::Monospace),
-                        );
-                    });
-            });
-
-            // Right: message log
-            cols[1].vertical(|ui| {
-                ui.horizontal(|ui| {
-                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
-                        ui.ctx().copy_text(self.output.clone());
-                    }
-                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("save_filter_text"), &["txt"], &tr!("udp_save_default"), self.output.clone());
-                    }
+        io_layout::show_error(ui, &self.error);
+        let (opt_h, body_h, field_h) = io_layout::aligned_io_heights(ui);
+        io_layout::two_column_io_with_height(ui, body_h, |ui, w, col| match col {
+            io_layout::IoColumn::Left => {
+                io_layout::column_header_row(ui, w, opt_h, |ui| {
+                    ui.label(egui::RichText::new(&lbl_input).strong());
                 });
-                ui.add_space(2.0);
-                ui.label(tr!("label_output"));
-                egui::ScrollArea::vertical()
-                    .id_salt("udp_output_scroll")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::TextEdit::multiline(&mut self.output)
-                                .desired_width(f32::INFINITY)
-                                .font(egui::TextStyle::Monospace),
-                        );
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::toolbar_row(ui, w, opt_h, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        if ui.button(&lbl_paste).clicked() {
+                            match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                                Ok(text) => self.send_input = text,
+                                Err(e) => self.error = tr!("err_clipboard", e),
+                            }
+                        }
+                        if ui.button(&lbl_open).clicked() {
+                            open_file_async(
+                                &mut self.pending_file,
+                                &tr!("save_as_title"),
+                                &tr!("save_filter_text"),
+                                &["txt"],
+                            );
+                        }
+                        if ui.button(&lbl_clear).clicked() {
+                            self.send_input.clear();
+                            self.output.clear();
+                            self.error.clear();
+                        }
+                        ui.add_enabled_ui(is_bound, |ui| {
+                            if ui.button(&lbl_send).clicked() && !self.send_input.is_empty() {
+                                self.send_msg();
+                            }
+                        });
                     });
-            });
+                });
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::multiline_field_at(ui, w, field_h, "udp_input_scroll", &mut self.send_input);
+            }
+            io_layout::IoColumn::Right => {
+                io_layout::column_header_row(ui, w, opt_h, |ui| {
+                    ui.label(egui::RichText::new(&lbl_output).strong());
+                });
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::toolbar_row(ui, w, opt_h, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        if ui.button(&lbl_copy).clicked() && !self.output.is_empty() {
+                            ui.ctx().copy_text(self.output.clone());
+                        }
+                        if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
+                            save_file_async(
+                                &mut self.save_pending,
+                                &tr!("save_as_title"),
+                                &tr!("save_filter_text"),
+                                &["txt"],
+                                &tr!("udp_save_default"),
+                                self.output.clone(),
+                            );
+                        }
+                    });
+                });
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::multiline_field_at(ui, w, field_h, "udp_output_scroll", &mut self.output);
+            }
         });
     }
 }

@@ -2,13 +2,17 @@ use eframe::egui;
 use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async};
+use crate::tools::io_layout;
 use serde_json::Value;
 
 pub struct JsonPathTester {
     json_input: String,
     path_input: String,
     output: String,
-    error: String,
+    /// Clipboard / file I/O messages.
+    status_error: String,
+    json_error: String,
+    path_error: String,
     prev_json: String,
     prev_path: String,
     match_count: usize,
@@ -22,7 +26,9 @@ impl Default for JsonPathTester {
             json_input: String::new(),
             path_input: String::new(),
             output: String::new(),
-            error: String::new(),
+            status_error: String::new(),
+            json_error: String::new(),
+            path_error: String::new(),
             prev_json: String::new(),
             prev_path: String::new(),
             match_count: 0,
@@ -34,7 +40,8 @@ impl Default for JsonPathTester {
 
 impl JsonPathTester {
     fn do_evaluate(&mut self) {
-        self.error.clear();
+        self.json_error.clear();
+        self.path_error.clear();
         self.output.clear();
         self.match_count = 0;
 
@@ -56,10 +63,10 @@ impl JsonPathTester {
                             self.output = formatted.join("\n");
                         }
                     }
-                    Err(e) => self.error = e,
+                    Err(e) => self.path_error = e,
                 }
             }
-            Err(e) => self.error = tr!("jy_json_parse_error", e),
+            Err(e) => self.json_error = tr!("jy_json_parse_error", e),
         }
     }
 
@@ -82,152 +89,121 @@ impl Tool for JsonPathTester {
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&err_reading) {
                 self.json_input = text;
-                self.error.clear();
+                self.status_error.clear();
             }
         }
         if let Some(text) = self.save_pending.poll() {
-            self.error = text;
+            self.status_error = text;
         }
 
-        let total = ui.available_rect_before_wrap();
-        let pad = 4.0;
-        let w = total.width();
-        let half_w = (w - pad) * 0.5;
-
-        // Layout constants
-        let label_h = 18.0;
-        let btn_h = 22.0;
-        let space = 2.0;
-        let query_h = 24.0;
-        let error_h = if self.error.is_empty() { 0.0 } else { 16.0 };
-        let top_header_h = label_h + space + btn_h + space + space; // label + buttons + padding
-        let cheat_header_h = 20.0 + space; // "Cheat sheet" label + separator
-
-        let cols_h = (total.height() * 0.55).max(120.0);
-        let cheat_h = (total.height() - cols_h - query_h - error_h - cheat_header_h - pad * 3.0).max(60.0);
-
-        // --- Left column: JSON Input ---
-        let left_rect = egui::Rect::from_min_size(
-            total.min,
-            egui::vec2(half_w, cols_h),
-        );
         let lbl_paste = tr!("btn_paste");
         let lbl_open = tr!("btn_open_file");
         let lbl_clear = tr!("btn_clear");
         let lbl_copy = tr!("btn_copy");
         let lbl_save_as = tr!("btn_save_as");
         let lbl_json = tr!("jp_json_label");
-
-        ui.scope_builder(egui::UiBuilder::new().max_rect(left_rect), |ui| {
-            ui.label(egui::RichText::new(&lbl_json).strong());
-            ui.add_space(space);
-            ui.horizontal(|ui| {
-                if ui.button(&lbl_paste).clicked() {
-                    match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
-                        Ok(text) => { self.json_input = text; self.error.clear(); }
-                        Err(e) => self.error = tr!("err_clipboard", e),
-                    }
-                }
-                if ui.button(&lbl_open).clicked() {
-                    open_file_async(&mut self.pending_file, &tr!("btn_open_file"), &tr!("jp_json_label"), &["json"]);
-                }
-                if ui.button(&lbl_clear).clicked() {
-                    self.json_input.clear();
-                    self.output.clear();
-                    self.error.clear();
-                    self.match_count = 0;
-                }
-            });
-            ui.add_space(space);
-            let text_h = (cols_h - top_header_h).max(40.0);
-            ui.add_sized(
-                egui::vec2(half_w, text_h),
-                egui::TextEdit::multiline(&mut self.json_input)
-                    .font(egui::TextStyle::Monospace),
-            );
-        });
-
-        // --- Right column: Test Result ---
-        let right_rect = egui::Rect::from_min_size(
-            total.min + egui::vec2(half_w + pad, 0.0),
-            egui::vec2(half_w, cols_h),
-        );
         let lbl_result = tr!("jp_result_label");
         let lbl_match_plural = tr!("jp_match_plural");
-        ui.scope_builder(egui::UiBuilder::new().max_rect(right_rect), |ui| {
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(&lbl_result).strong());
-                if self.match_count > 0 {
-                    ui.label(
-                        egui::RichText::new(tr!("jp_match_count", self.match_count, if self.match_count == 1 { "" } else { &lbl_match_plural }))
-                            .small().color(egui::Color32::GRAY),
-                    );
-                }
-            });
-            ui.add_space(space);
-            ui.horizontal(|ui| {
-                if ui.button(&lbl_copy).clicked() && !self.output.is_empty() {
-                    ui.ctx().copy_text(self.output.clone());
-                }
-                if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
-                    crate::tools::async_utils::save_file_async(&mut self.save_pending, &tr!("save_as_title"), &tr!("jp_json_label"), &["json"], &tr!("jp_save_default"), self.output.clone());
-                }
-            });
-            ui.add_space(space);
-            let text_h = (cols_h - top_header_h).max(40.0);
-            ui.add_sized(
-                egui::vec2(half_w, text_h),
-                egui::TextEdit::multiline(&mut self.output)
-                    .font(egui::TextStyle::Monospace),
-            );
+
+        let cols_h = (ui.available_height() * 0.45).max(120.0);
+        let opt_h = io_layout::option_row_height(ui);
+        io_layout::error_slot(ui, &self.status_error, 1);
+        io_layout::error_slot(ui, &self.json_error, 2);
+        io_layout::two_column_io_with_height(ui, cols_h, |ui, w, col| match col {
+            io_layout::IoColumn::Left => {
+                ui.label(egui::RichText::new(&lbl_json).strong());
+                ui.add_space(io_layout::ROW_GAP);
+                ui.horizontal(|ui| {
+                    if ui.button(&lbl_paste).clicked() {
+                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                            Ok(text) => {
+                                self.json_input = text;
+                                self.status_error.clear();
+                            }
+                            Err(e) => self.status_error = tr!("err_clipboard", e),
+                        }
+                    }
+                    if ui.button(&lbl_open).clicked() {
+                        open_file_async(
+                            &mut self.pending_file,
+                            &tr!("btn_open_file"),
+                            &tr!("jp_json_label"),
+                            &["json"],
+                        );
+                    }
+                    if ui.button(&lbl_clear).clicked() {
+                        self.json_input.clear();
+                        self.output.clear();
+                        self.status_error.clear();
+                        self.json_error.clear();
+                        self.path_error.clear();
+                        self.match_count = 0;
+                    }
+                });
+                io_layout::row_spacer(ui, opt_h);
+                io_layout::multiline_field(ui, w, "jp_json_scroll", &mut self.json_input);
+            }
+            io_layout::IoColumn::Right => {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&lbl_result).strong());
+                    if self.match_count > 0 {
+                        ui.label(
+                            egui::RichText::new(tr!(
+                                "jp_match_count",
+                                self.match_count,
+                                if self.match_count == 1 { "" } else { &lbl_match_plural }
+                            ))
+                            .small()
+                            .color(egui::Color32::GRAY),
+                        );
+                    }
+                });
+                ui.add_space(io_layout::ROW_GAP);
+                ui.horizontal(|ui| {
+                    if ui.button(&lbl_copy).clicked() && !self.output.is_empty() {
+                        ui.ctx().copy_text(self.output.clone());
+                    }
+                    if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
+                        crate::tools::async_utils::save_file_async(
+                            &mut self.save_pending,
+                            &tr!("save_as_title"),
+                            &tr!("jp_json_label"),
+                            &["json"],
+                            &tr!("jp_save_default"),
+                            self.output.clone(),
+                        );
+                    }
+                });
+                io_layout::row_spacer(ui, opt_h);
+                io_layout::multiline_field(ui, w, "jp_output_scroll", &mut self.output);
+            }
         });
 
-        // --- JSONPath query bar ---
-        let query_y = total.min.y + cols_h + pad;
-        let query_rect = egui::Rect::from_min_size(
-            egui::pos2(total.min.x, query_y),
-            egui::vec2(w, query_h),
-        );
+        ui.add_space(4.0);
         let lbl_jp_query = tr!("jp_query_label");
         let lbl_jp_hint = tr!("jp_hint");
-        ui.scope_builder(egui::UiBuilder::new().max_rect(query_rect), |ui| {
-            ui.horizontal(|ui| {
-                ui.label(&lbl_jp_query);
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.path_input)
-                        .desired_width(ui.available_width())
-                        .hint_text(&lbl_jp_hint),
-                );
-            });
-        });
-
-        if !self.error.is_empty() {
-            let error_y = query_y + query_h;
-            let error_rect = egui::Rect::from_min_size(
-                egui::pos2(total.min.x, error_y),
-                egui::vec2(w, error_h),
+        ui.horizontal(|ui| {
+            ui.label(&lbl_jp_query);
+            let path_response = ui.add(
+                egui::TextEdit::singleline(&mut self.path_input)
+                    .id_salt("jp_path_input")
+                    .desired_width(ui.available_width())
+                    .hint_text(&lbl_jp_hint),
             );
-            ui.scope_builder(egui::UiBuilder::new().max_rect(error_rect), |ui| {
-                ui.colored_label(egui::Color32::RED, &self.error);
-            });
-        }
+            let keep_path_focus = path_response.has_focus();
+            self.auto_evaluate();
+            if keep_path_focus {
+                path_response.request_focus();
+            }
+        });
+        io_layout::error_slot(ui, &self.path_error, 1);
 
-        // Auto-evaluate on input change
-        self.auto_evaluate();
-
-        // --- Cheatsheet fills remaining height ---
-        let cheat_y = query_y + query_h + error_h + pad;
-        let cheat_rect = egui::Rect::from_min_size(
-            egui::pos2(total.min.x, cheat_y),
-            egui::vec2(w, cheat_h),
-        );
         let lbl_cheatsheet = tr!("jp_cheatsheet");
-        ui.scope_builder(egui::UiBuilder::new().max_rect(cheat_rect), |ui| {
-            ui.group(|ui| {
-                ui.label(egui::RichText::new(&lbl_cheatsheet).strong());
-                ui.separator();
+        ui.group(|ui| {
+            ui.label(egui::RichText::new(&lbl_cheatsheet).strong());
+            ui.separator();
 
-                let entries: &[(&str, &str)] = &[
+            let entries: &[(&str, &str)] = &[
                     ("$", "The root object or array."),
                     ("@", "Used for filter expressions. Refers to the current node for further processing."),
                     ("object.property", "Dot-notated child"),
@@ -257,7 +233,6 @@ impl Tool for JsonPathTester {
                                 }
                             });
                     });
-            });
         });
     }
 }

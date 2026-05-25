@@ -2,6 +2,7 @@ use eframe::egui;
 use crate::tr;
 use crate::tool::{Tool, ToolCategory};
 use crate::tools::async_utils::{Pending, open_file_async, save_file_async};
+use crate::tools::io_layout;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -37,6 +38,11 @@ impl Tool for JsonFormatter {
     fn category(&self) -> ToolCategory { ToolCategory::Formatters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let prev_input = self.input.clone();
+        let prev_indent = self.indent;
+        let prev_sort = self.sort_keys;
+        let prev_minify = self.minify;
+
         if let Some(text) = self.pending_file.poll() {
             let err_prefix = tr!("err_error_reading");
             if !text.starts_with(&err_prefix) {
@@ -46,87 +52,74 @@ impl Tool for JsonFormatter {
         if let Some(text) = self.save_pending.poll() {
             self.error = text;
         }
-        let prev_input = self.input.clone();
-        let prev_indent = self.indent;
-        let prev_sort = self.sort_keys;
-        let prev_minify = self.minify;
 
-        ui.columns(2, |cols| {
-            // Left: Input
-            cols[0].vertical(|ui| {
+        let lbl_paste = tr!("btn_paste");
+        let lbl_open_file = tr!("btn_open_file");
+        let lbl_clear = tr!("btn_clear");
+        let lbl_indent = tr!("label_indent");
+        let lbl_minify = tr!("label_minify");
+        let lbl_sort_keys = tr!("label_sort_keys");
+        let lbl_input = tr!("jf_input_label");
+        let lbl_copy = tr!("btn_copy");
+        let lbl_save_as = tr!("btn_save_as");
+        let lbl_output = tr!("label_output");
+        let err_clipboard = tr!("err_clipboard");
+
+        let opt_h = io_layout::option_row_height(ui);
+        io_layout::show_error(ui, &self.error);
+        io_layout::two_column_io(ui, |ui, w, col| match col {
+            io_layout::IoColumn::Left => {
                 ui.horizontal(|ui| {
-                    if ui.button(tr!("btn_paste")).clicked() {
+                    if ui.button(&lbl_paste).clicked() {
                         match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
                             Ok(text) => self.input = text,
-                            Err(e) => self.error = tr!("err_clipboard", e),
+                            Err(e) => self.error = err_clipboard.replace("{}", &e.to_string()),
                         }
                     }
-                    if ui.button(tr!("btn_open_file")).clicked() {
-                        open_file_async(&mut self.pending_file, &tr!("jf_input_label"), "JSON", &["json"]);
+                    if ui.button(&lbl_open_file).clicked() {
+                        open_file_async(&mut self.pending_file, &lbl_input, "JSON", &["json"]);
                     }
-                    if ui.button(tr!("btn_clear")).clicked() {
+                    if ui.button(&lbl_clear).clicked() {
                         self.input.clear();
                         self.output.clear();
                         self.error.clear();
                     }
                 });
-                ui.add_space(2.0);
-
+                ui.add_space(io_layout::ROW_GAP);
                 ui.horizontal(|ui| {
-                    ui.label(tr!("label_indent"));
+                    ui.label(&lbl_indent);
                     ui.add(egui::DragValue::new(&mut self.indent).range(0..=8).speed(1));
-                    let label_minify = tr!("label_minify");
-                    ui.checkbox(&mut self.minify, &label_minify);
-                    let label_sort_keys = tr!("label_sort_keys");
-                    ui.checkbox(&mut self.sort_keys, &label_sort_keys);
+                    ui.checkbox(&mut self.minify, &lbl_minify);
+                    ui.checkbox(&mut self.sort_keys, &lbl_sort_keys);
                 });
-                ui.add_space(2.0);
-                ui.label(tr!("jf_input_label"));
-
-                egui::ScrollArea::vertical()
-                    .id_salt("json_input_scroll")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::TextEdit::multiline(&mut self.input)
-                                .desired_width(f32::INFINITY)
-                                .font(egui::TextStyle::Monospace),
-                        );
-                    });
-            });
-
-            // Right: Output
-            cols[1].vertical(|ui| {
-                if !self.error.is_empty() {
-                    ui.colored_label(egui::Color32::RED, &self.error);
-                    ui.add_space(4.0);
-                }
-
+                ui.add_space(io_layout::ROW_GAP);
+                ui.label(&lbl_input);
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::multiline_field(ui, w, "json_input_scroll", &mut self.input);
+            }
+            io_layout::IoColumn::Right => {
                 ui.horizontal(|ui| {
-                    if ui.button(tr!("btn_copy")).clicked() && !self.output.is_empty() {
+                    if ui.button(&lbl_copy).clicked() && !self.output.is_empty() {
                         ui.ctx().copy_text(self.output.clone());
                     }
-                    if ui.button(tr!("btn_save_as")).clicked() && !self.output.is_empty() {
-                        save_file_async(&mut self.save_pending, &tr!("save_as_title"), "JSON", &["json"], "formatted.json", self.output.clone());
+                    if ui.button(&lbl_save_as).clicked() && !self.output.is_empty() {
+                        save_file_async(
+                            &mut self.save_pending,
+                            &tr!("save_as_title"),
+                            "JSON",
+                            &["json"],
+                            "formatted.json",
+                            self.output.clone(),
+                        );
                     }
                 });
-                ui.add_space(2.0);
-                ui.label(tr!("label_output"));
-
-                egui::ScrollArea::vertical()
-                    .id_salt("json_output_scroll")
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        ui.add(
-                            egui::TextEdit::multiline(&mut self.output)
-                                .desired_width(f32::INFINITY)
-                                .font(egui::TextStyle::Monospace),
-                        );
-                    });
-            });
+                io_layout::row_spacer(ui, opt_h + io_layout::ROW_GAP);
+                ui.label(&lbl_output);
+                ui.add_space(io_layout::ROW_GAP);
+                io_layout::multiline_field(ui, w, "json_output_scroll", &mut self.output);
+            }
         });
 
-        // Auto-format
         if self.input != prev_input || self.indent != prev_indent
             || self.sort_keys != prev_sort || self.minify != prev_minify
         {
@@ -142,11 +135,9 @@ impl JsonFormatter {
             self.output.clear();
             return;
         }
-
         match serde_json::from_str::<Value>(&self.input) {
             Ok(val) => {
                 let val = if self.sort_keys { sort_json_keys(&val) } else { val };
-
                 if self.minify {
                     self.output = serde_json::to_string(&val).unwrap();
                 } else if self.indent == 0 {

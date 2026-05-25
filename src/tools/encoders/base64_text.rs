@@ -20,6 +20,9 @@ impl Tool for Base64Text {
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let prev_input = self.input.clone();
+        let prev_mode = self.encode_mode;
+
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
@@ -35,9 +38,6 @@ impl Tool for Base64Text {
             ui.radio_value(&mut self.encode_mode, false, &label_decode);
         });
         ui.add_space(4.0);
-
-        let prev_input = self.input.clone();
-        let prev_mode = self.encode_mode;
 
         ui.columns(2, |cols| {
             // Left: Input

@@ -31,6 +31,9 @@ impl Tool for YamlProperties {
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let prev_input = self.input.clone();
+        let prev_to_properties = self.to_properties;
+
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
@@ -47,9 +50,6 @@ impl Tool for YamlProperties {
             ui.radio_value(&mut self.to_properties, false, &label_yp_props_to_yaml);
         });
         ui.add_space(4.0);
-
-        let prev_input = self.input.clone();
-        let prev_to_properties = self.to_properties;
 
         ui.columns(2, |cols| {
             // Left: Input panel

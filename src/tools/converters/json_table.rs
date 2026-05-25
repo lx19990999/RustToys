@@ -45,6 +45,10 @@ impl Tool for JsonTable {
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        let prev_input = self.input.clone();
+        let prev_flatten = self.flatten_nested;
+        let prev_sort = self.sort_alpha;
+
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;
@@ -58,10 +62,6 @@ impl Tool for JsonTable {
             ui.checkbox(&mut self.sort_alpha, tr!("jt_sort_columns"));
         });
         ui.add_space(4.0);
-
-        let prev_input = self.input.clone();
-        let prev_flatten = self.flatten_nested;
-        let prev_sort = self.sort_alpha;
 
         // Left-right layout: input | output
         ui.columns(2, |cols| {

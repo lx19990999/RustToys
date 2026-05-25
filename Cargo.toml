@@ -2,6 +2,7 @@
 name = "rusttoys"
 version = "0.1.0"
 edition = "2021"
+authors = ["lx19990999 <lx19990999@gmail.com>"]
 description = "A Swiss Army knife for developers"
 license = "GPL-3.0"
 repository = "https://github.com/lx19990999/RustToys"
