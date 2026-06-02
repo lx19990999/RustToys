@@ -23,6 +23,8 @@ pub struct ListComparer {
     pending_open_target: Option<OpenListTarget>,
     save_pending: Pending<String>,
     save_result: String,
+    col_a_rect: Option<egui::Rect>,
+    col_b_rect: Option<egui::Rect>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -85,6 +87,8 @@ impl Default for ListComparer {
             pending_open_target: None,
             save_pending: Pending::default(),
             save_result: String::new(),
+            col_a_rect: None,
+            col_b_rect: None,
         }
     }
 }
@@ -103,6 +107,15 @@ impl Tool for ListComparer {
         let prev_empty = self.ignore_empty;
 
         let err_reading = tr!("err_error_reading");
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            let cursor = ui.ctx().input(|i| i.pointer.hover_pos());
+            let target = match (cursor, self.col_b_rect) {
+                (Some(pos), Some(rect)) if rect.contains(pos) => OpenListTarget::B,
+                _ => OpenListTarget::A,
+            };
+            self.pending_open_target = Some(target);
+            crate::tools::async_utils::open_dropped_text_async(&mut self.pending_file, path);
+        }
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&err_reading) {
                 match self.pending_open_target.take() {
@@ -204,6 +217,7 @@ impl Tool for ListComparer {
 
         io_layout::two_column_io_with_height(ui, lists_h, |ui, w, col| match col {
             io_layout::IoColumn::Left => {
+                self.col_a_rect = Some(ui.max_rect());
                 ui.label(egui::RichText::new(&lbl_list_a).strong());
                 ui.add_space(io_layout::ROW_GAP);
                 ui.allocate_ui_with_layout(
@@ -230,6 +244,7 @@ impl Tool for ListComparer {
                 );
             }
             io_layout::IoColumn::Right => {
+                self.col_b_rect = Some(ui.max_rect());
                 ui.label(egui::RichText::new(&lbl_list_b).strong());
                 ui.add_space(io_layout::ROW_GAP);
                 ui.allocate_ui_with_layout(

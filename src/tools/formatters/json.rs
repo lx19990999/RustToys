@@ -43,6 +43,9 @@ impl Tool for JsonFormatter {
         let prev_sort = self.sort_keys;
         let prev_minify = self.minify;
 
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            crate::tools::async_utils::open_dropped_text_async(&mut self.pending_file, path);
+        }
         if let Some(text) = self.pending_file.poll() {
             let err_prefix = tr!("err_error_reading");
             if !text.starts_with(&err_prefix) {

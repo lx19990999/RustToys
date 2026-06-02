@@ -40,6 +40,9 @@ impl Tool for EscapeUnescape {
         let prev_mode = self.escape_mode;
 
         let err_reading = tr!("err_error_reading");
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            crate::tools::async_utils::open_dropped_text_async(&mut self.pending_file, path);
+        }
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&err_reading) {
                 self.input = text;

@@ -71,6 +71,14 @@ impl Tool for HashGenerator {
     fn is_busy(&self) -> bool { self.computing }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            if !self.computing {
+                self.file_path = path.to_string_lossy().to_string();
+                self.input = self.file_path.clone();
+                self.is_file = true;
+                self.start_file_hash(path);
+            }
+        }
         if let Some(text) = self.pending_file.poll() {
             self.verify_checksum = text;
         }

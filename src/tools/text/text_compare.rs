@@ -14,6 +14,8 @@ pub struct TextComparer {
     save_pending: Pending<String>,
     save_result: String,
     pending_diff: Pending<Vec<DiffLine>>,
+    col_a_rect: Option<egui::Rect>,
+    col_b_rect: Option<egui::Rect>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -51,6 +53,8 @@ impl Default for TextComparer {
             save_pending: Pending::default(),
             save_result: String::new(),
             pending_diff: Pending::default(),
+            col_a_rect: None,
+            col_b_rect: None,
         }
     }
 }
@@ -62,6 +66,15 @@ impl Tool for TextComparer {
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         let err_reading = tr!("err_error_reading");
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            let cursor = ui.ctx().input(|i| i.pointer.hover_pos());
+            let target = match (cursor, self.col_b_rect) {
+                (Some(pos), Some(rect)) if rect.contains(pos) => OpenTextTarget::B,
+                _ => OpenTextTarget::A,
+            };
+            self.pending_open_target = Some(target);
+            crate::tools::async_utils::open_dropped_text_async(&mut self.pending_file, path);
+        }
         // Poll async file read results
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&err_reading) {
@@ -112,6 +125,7 @@ impl Tool for TextComparer {
         // Input columns
         ui.columns(2, |cols| {
             // --- Text A ---
+            self.col_a_rect = Some(cols[0].max_rect());
             cols[0].label(egui::RichText::new(&lbl_text_a).strong());
             cols[0].horizontal_wrapped(|ui| {
                 if ui.button(&lbl_paste).clicked() {
@@ -148,6 +162,7 @@ impl Tool for TextComparer {
                 });
 
             // --- Text B ---
+            self.col_b_rect = Some(cols[1].max_rect());
             cols[1].label(egui::RichText::new(&lbl_text_b).strong());
             cols[1].horizontal_wrapped(|ui| {
                 if ui.button(&lbl_paste).clicked() {

@@ -74,6 +74,22 @@ impl Tool for SymmetricEncryption {
         let prev_key = self.key.clone();
         let prev_iv = self.iv.clone();
 
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            let encrypt = self.encrypt;
+            let (tx, rx) = std::sync::mpsc::channel();
+            self.pending_file.set_receiver(rx);
+            std::thread::spawn(move || {
+                match std::fs::read(&path) {
+                    Ok(bytes) => {
+                        let text = input_from_file_bytes(&bytes, encrypt);
+                        let _ = tx.send(text);
+                    }
+                    Err(e) => {
+                        let _ = tx.send(format!("Error reading file: {}", e));
+                    }
+                }
+            });
+        }
         if let Some(text) = self.pending_file.poll() {
             if text.starts_with(&err_prefix) {
                 self.error = text;

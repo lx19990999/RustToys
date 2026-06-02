@@ -43,6 +43,10 @@ impl Tool for NumberBase {
     fn category(&self) -> ToolCategory { ToolCategory::Converters }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            self.pending_field = Some("decimal".to_string());
+            crate::tools::async_utils::open_dropped_text_async(&mut self.pending_file, path);
+        }
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 if let Some(ref field_name) = self.pending_field.take() {

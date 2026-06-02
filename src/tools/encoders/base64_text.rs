@@ -23,6 +23,14 @@ impl Tool for Base64Text {
         let prev_input = self.input.clone();
         let prev_mode = self.encode_mode;
 
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            match std::fs::read(&path) {
+                Ok(bytes) => {
+                    self.input = String::from_utf8_lossy(&bytes).to_string();
+                }
+                Err(e) => self.error = tr!("err_file_read", e),
+            }
+        }
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;

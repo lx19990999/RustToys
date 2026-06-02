@@ -41,6 +41,21 @@ impl Tool for Base64Image {
         let prev_input = self.input.clone();
         let prev_mode = self.encode_mode;
 
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            if self.encode_mode {
+                match std::fs::read(&path) {
+                    Ok(bytes) => {
+                        self.input = path.to_string_lossy().to_string();
+                        self.load_preview(&bytes, ui.ctx());
+                        self.output = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                        self.error.clear();
+                    }
+                    Err(e) => self.error = tr!("err_file_read", e),
+                }
+            } else {
+                crate::tools::async_utils::open_dropped_text_async(&mut self.pending_file, path);
+            }
+        }
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;

@@ -190,6 +190,9 @@ impl Tool for ImageConverter {
     fn category(&self) -> ToolCategory { ToolCategory::Graphic }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            self.load_image(path);
+        }
         if let Some(text) = self.pending_file.poll() {
             self.status = text;
         }

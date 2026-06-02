@@ -30,6 +30,26 @@ impl Tool for CertificateDecoder {
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            match std::fs::read(&path) {
+                Ok(bytes) => {
+                    if let Ok(text) = std::str::from_utf8(&bytes) {
+                        if text.contains("-----BEGIN") {
+                            self.input = text.to_string();
+                        } else {
+                            let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                            self.input = format!("-----BEGIN CERTIFICATE-----\n{}\n-----END CERTIFICATE-----",
+                                wrap_lines(&b64, 64));
+                        }
+                    } else {
+                        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                        self.input = format!("-----BEGIN CERTIFICATE-----\n{}\n-----END CERTIFICATE-----",
+                            wrap_lines(&b64, 64));
+                    }
+                }
+                Err(e) => self.error = tr!("err_file_read", e),
+            }
+        }
         if let Some(text) = self.pending_file.poll() {
             self.save_result = text;
         }

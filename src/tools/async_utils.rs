@@ -1,5 +1,6 @@
 use std::sync::mpsc;
 use std::path::PathBuf;
+use eframe::egui;
 
 /// A pending async result that can be polled each frame.
 pub struct Pending<T> {
@@ -57,6 +58,35 @@ pub fn open_file_async(
             }
         });
     }
+}
+
+/// Take the first dropped file path from egui input, if any.
+pub fn take_dropped_file(ctx: &egui::Context) -> Option<PathBuf> {
+    ctx.input(|i| i.raw.dropped_files.first().and_then(|f| f.path.clone()))
+}
+
+/// Read a dropped file as text in a background thread (for text-based tools).
+pub fn open_dropped_text_async(pending: &mut Pending<String>, path: PathBuf) {
+    let (tx, rx) = mpsc::channel();
+    pending.set_receiver(rx);
+    std::thread::spawn(move || {
+        match std::fs::read_to_string(&path) {
+            Ok(text) => { let _ = tx.send(text); }
+            Err(e) => { let _ = tx.send(format!("Error reading file: {}", e)); }
+        }
+    });
+}
+
+/// Read a dropped file as raw bytes in a background thread (for binary tools).
+pub fn open_dropped_binary_async(pending: &mut Pending<Vec<u8>>, path: PathBuf) {
+    let (tx, rx) = mpsc::channel();
+    pending.set_receiver(rx);
+    std::thread::spawn(move || {
+        match std::fs::read(&path) {
+            Ok(bytes) => { let _ = tx.send(bytes); }
+            Err(_) => { let _ = tx.send(Vec::new()); }
+        }
+    });
 }
 
 

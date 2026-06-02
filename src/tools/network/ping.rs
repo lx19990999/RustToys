@@ -52,6 +52,9 @@ impl Tool for PingSpeedTest {
     fn is_busy(&self) -> bool { self.running }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            crate::tools::async_utils::open_dropped_text_async(&mut self.pending_file, path);
+        }
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;

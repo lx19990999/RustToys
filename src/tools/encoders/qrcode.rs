@@ -52,6 +52,14 @@ impl Tool for QrCode {
 
     fn ui(&mut self, ui: &mut egui::Ui) {
         self.file_loaded = false;
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            if self.mode {
+                self.decode_file_path = path.to_string_lossy().to_string();
+                self.decode_from_file(ui.ctx());
+            } else {
+                crate::tools::async_utils::open_dropped_text_async(&mut self.pending_file, path);
+            }
+        }
         if let Some(text) = self.pending_file.poll() {
             if !text.starts_with(&tr!("err_error_reading")) {
                 self.input = text;

@@ -33,6 +33,14 @@ impl Tool for GZip {
     fn category(&self) -> ToolCategory { ToolCategory::Encoders }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            match std::fs::read(&path) {
+                Ok(bytes) => {
+                    self.input = String::from_utf8_lossy(&bytes).to_string();
+                }
+                Err(e) => self.error = tr!("err_file_read", e),
+            }
+        }
         if let Some(text) = self.pending_file.poll() {
             self.save_result = text;
         }

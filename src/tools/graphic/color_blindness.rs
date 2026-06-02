@@ -175,6 +175,26 @@ impl Tool for ColorBlindness {
     fn category(&self) -> ToolCategory { ToolCategory::Graphic }
 
     fn ui(&mut self, ui: &mut egui::Ui) {
+        if let Some(path) = crate::tools::async_utils::take_dropped_file(ui.ctx()) {
+            self.error.clear();
+            match image::open(&path) {
+                Ok(img) => {
+                    let (w, h) = img.dimensions();
+                    let rgba = img.to_rgba8();
+                    let raw = rgba.into_raw();
+                    self.pixel_sets[0] = raw.clone();
+                    self.pixel_sets[1] = simulate_image(&raw, w, h, PROTANOPIA_MATRIX);
+                    self.pixel_sets[2] = simulate_image(&raw, w, h, DEUTERANOPIA_MATRIX);
+                    self.pixel_sets[3] = simulate_image(&raw, w, h, TRITANOPIA_MATRIX);
+                    self.img_width = w;
+                    self.img_height = h;
+                    self.image_loaded = true;
+                    self.textures_dirty = true;
+                    self.textures = [None, None, None, None];
+                }
+                Err(e) => self.error = tr!("cb_failed_open", e),
+            }
+        }
         if let Some(text) = self.pending_file.poll() {
             self.error = text;
         }
