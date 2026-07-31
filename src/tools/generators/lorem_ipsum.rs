@@ -138,6 +138,12 @@ impl LoremIpsum {
                         let sentence_count = rng.gen_range(3..=8);
                         paragraphs.push(generate_paragraph(&mut rng, words, sentence_count));
                     }
+                } else if self.library == 3 {
+                    // Chinese: no spaces, Chinese punctuation every 10~15 chars
+                    for _ in 0..self.count {
+                        let char_count = rng.gen_range(40..=120);
+                        paragraphs.push(generate_chinese_paragraph(&mut rng, words, char_count));
+                    }
                 } else {
                     for _ in 0..self.count {
                         let sentence_count = rng.gen_range(3..=8);
@@ -157,6 +163,17 @@ impl LoremIpsum {
                     for _ in 1..self.count {
                         let word_count = rng.gen_range(8..=20);
                         sentences.push(generate_sentence(&mut rng, words, word_count));
+                    }
+                } else if self.library == 3 {
+                    // Chinese sentences: no spaces, Chinese punctuation
+                    for _ in 0..self.count {
+                        let char_count = rng.gen_range(10..=20);
+                        let mut s = String::new();
+                        for _ in 0..char_count {
+                            s.push_str(words[rng.gen_range(0..words.len())]);
+                        }
+                        s.push('。');
+                        sentences.push(s);
                     }
                 } else {
                     for _ in 0..self.count {
@@ -182,12 +199,17 @@ impl LoremIpsum {
                         word_list.push(words[rng.gen_range(0..words.len())].to_string());
                     }
                 }
-                if let Some(first) = word_list.first_mut() {
-                    if let Some(c) = first.chars().next() {
-                        first.replace_range(0..c.len_utf8(), &c.to_uppercase().to_string());
+                if self.library == 3 {
+                    // Chinese: join without spaces, use Chinese period
+                    word_list.join("") + "。"
+                } else {
+                    if let Some(first) = word_list.first_mut() {
+                        if let Some(c) = first.chars().next() {
+                            first.replace_range(0..c.len_utf8(), &c.to_uppercase().to_string());
+                        }
                     }
+                    word_list.join(" ") + "."
                 }
-                word_list.join(" ") + "."
             }
             _ => String::new(),
         };
@@ -303,6 +325,30 @@ fn generate_sentence(rng: &mut impl Rng, words: &[&str], word_count: usize) -> S
     }
     sent.push('.');
     sent
+}
+
+/// Generate a Chinese paragraph: no spaces, Chinese punctuation every 10~15 chars,
+/// ends with Chinese period.
+fn generate_chinese_paragraph(rng: &mut impl Rng, words: &[&str], char_count: usize) -> String {
+    let mut result = String::new();
+    let mut remaining = char_count;
+    while remaining > 0 {
+        let span = if remaining <= 15 { remaining } else { rng.gen_range(10..=15) };
+        for _ in 0..span {
+            result.push_str(words[rng.gen_range(0..words.len())]);
+        }
+        remaining -= span;
+        if remaining > 0 {
+            // Mid-paragraph: randomly pick comma or period
+            if rng.gen_bool(0.5) {
+                result.push('，');
+            } else {
+                result.push('。');
+            }
+        }
+    }
+    result.push('。');
+    result
 }
 
 fn generate_paragraph(rng: &mut impl Rng, words: &[&str], sentence_count: usize) -> String {
