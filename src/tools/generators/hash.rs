@@ -117,7 +117,7 @@ impl Tool for HashGenerator {
                 ui.horizontal(|ui| {
                     let lbl_paste = tr!("btn_paste");
                     if ui.button(lbl_paste).clicked() && !self.computing {
-                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                        match crate::clipboard::read_text() {
                             Ok(text) => {
                                 self.input = text;
                                 self.is_file = false;

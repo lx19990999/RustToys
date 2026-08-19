@@ -2,11 +2,14 @@
 
 mod app;
 mod autostart;
+mod clipboard;
 mod config;
 mod i18n;
 mod sidebar;
 mod tool;
 mod tools;
+
+use raw_window_handle::HasDisplayHandle;
 
 fn main() -> eframe::Result {
     config::init();
@@ -28,6 +31,9 @@ fn main() -> eframe::Result {
         "RustToys",
         native_options,
         Box::new(|cc| {
+            if let Ok(handle) = cc.display_handle() {
+                clipboard::init(Some(handle.as_raw()));
+            }
             install_cjk_font(&cc.egui_ctx);
             Ok(Box::new(app::RustToysApp::new(cc)))
         }),

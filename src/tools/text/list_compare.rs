@@ -147,7 +147,7 @@ impl Tool for ListComparer {
 
         ui.horizontal_wrapped(|ui| {
             if ui.button(&lbl_paste).clicked() {
-                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                match crate::clipboard::read_text() {
                     Ok(text) => self.list_a = text,
                     Err(e) => self.result = tr!("err_clipboard", e),
                 }
@@ -181,7 +181,7 @@ impl Tool for ListComparer {
             }
             ui.separator();
             if ui.button(&lbl_paste_b).clicked() {
-                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                match crate::clipboard::read_text() {
                     Ok(text) => self.list_b = text,
                     Err(e) => self.result = tr!("err_clipboard", e),
                 }

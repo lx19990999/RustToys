@@ -61,7 +61,7 @@ impl Tool for YamlProperties {
 
                 ui.horizontal(|ui| {
                     if ui.button(tr!("btn_paste")).clicked() {
-                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                        match crate::clipboard::read_text() {
                             Ok(text) => self.input = text,
                             Err(e) => self.error = tr!("err_clipboard", e),
                         }

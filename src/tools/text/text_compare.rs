@@ -129,7 +129,7 @@ impl Tool for TextComparer {
             cols[0].label(egui::RichText::new(&lbl_text_a).strong());
             cols[0].horizontal_wrapped(|ui| {
                 if ui.button(&lbl_paste).clicked() {
-                    match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                    match crate::clipboard::read_text() {
                         Ok(text) => self.text_a = text,
                         Err(e) => { self.diff_result = vec![DiffLine { line: tr!("err_clipboard", e), kind: DiffKind::Removed }]; }
                     }
@@ -166,7 +166,7 @@ impl Tool for TextComparer {
             cols[1].label(egui::RichText::new(&lbl_text_b).strong());
             cols[1].horizontal_wrapped(|ui| {
                 if ui.button(&lbl_paste).clicked() {
-                    match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                    match crate::clipboard::read_text() {
                         Ok(text) => self.text_b = text,
                         Err(e) => { self.diff_result = vec![DiffLine { line: tr!("err_clipboard", e), kind: DiffKind::Added }]; }
                     }

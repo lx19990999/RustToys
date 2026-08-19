@@ -76,7 +76,7 @@ impl Tool for EscapeUnescape {
                 ui.add_space(io_layout::ROW_GAP);
                 ui.horizontal_wrapped(|ui| {
                     if ui.button(&lbl_paste).clicked() {
-                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                        match crate::clipboard::read_text() {
                             Ok(text) => self.input = text,
                             Err(e) => self.output = tr!("err_clipboard", e),
                         }

@@ -149,7 +149,7 @@ impl Tool for XmlTester {
             ui.add_space(space);
             ui.horizontal(|ui| {
                 if ui.button(&lbl_paste).clicked() {
-                    match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                    match crate::clipboard::read_text() {
                         Ok(text) => { self.xsd_input = text; self.error.clear(); }
                         Err(e) => self.error = tr!("err_clipboard", e),
                     }
@@ -183,7 +183,7 @@ impl Tool for XmlTester {
             ui.add_space(space);
             ui.horizontal(|ui| {
                 if ui.button(&lbl_paste).clicked() {
-                    match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                    match crate::clipboard::read_text() {
                         Ok(text) => { self.xml_input = text; self.error.clear(); }
                         Err(e) => self.error = tr!("err_clipboard", e),
                     }

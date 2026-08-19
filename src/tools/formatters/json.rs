@@ -74,7 +74,7 @@ impl Tool for JsonFormatter {
             io_layout::IoColumn::Left => {
                 ui.horizontal(|ui| {
                     if ui.button(&lbl_paste).clicked() {
-                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                        match crate::clipboard::read_text() {
                             Ok(text) => self.input = text,
                             Err(e) => self.error = err_clipboard.replace("{}", &e.to_string()),
                         }

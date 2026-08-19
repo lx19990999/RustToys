@@ -118,7 +118,7 @@ impl Tool for JsonPathTester {
                 ui.add_space(io_layout::ROW_GAP);
                 ui.horizontal(|ui| {
                     if ui.button(&lbl_paste).clicked() {
-                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                        match crate::clipboard::read_text() {
                             Ok(text) => {
                                 self.json_input = text;
                                 self.status_error.clear();

@@ -113,7 +113,7 @@ impl Tool for NumberBase {
         // Apply pending actions after UI rendering
         match pending {
             Some(PendingAction::Paste(field)) => {
-                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                match crate::clipboard::read_text() {
                     Ok(text) => {
                         *self.field_mut(field) = text.trim().to_string();
                         self.update_from(field);

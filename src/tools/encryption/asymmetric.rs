@@ -86,7 +86,7 @@ impl Tool for AsymmetricEncryption {
         ui.label(tr!("asym_public_key"));
         ui.horizontal(|ui| {
             if ui.button(tr!("btn_paste")).clicked() {
-                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                match crate::clipboard::read_text() {
                     Ok(text) => self.public_key = text,
                     Err(e) => self.error = tr!("err_clipboard", e),
                 }
@@ -119,7 +119,7 @@ impl Tool for AsymmetricEncryption {
         ui.label(tr!("asym_private_key"));
         ui.horizontal(|ui| {
             if ui.button(tr!("btn_paste")).clicked() {
-                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                match crate::clipboard::read_text() {
                     Ok(text) => self.private_key = text,
                     Err(e) => self.error = tr!("err_clipboard", e),
                 }
@@ -161,7 +161,7 @@ impl Tool for AsymmetricEncryption {
 
                 ui.horizontal(|ui| {
                     if ui.button(tr!("btn_paste")).clicked() {
-                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                        match crate::clipboard::read_text() {
                             Ok(text) => self.input = text,
                             Err(e) => self.error = tr!("err_clipboard", e),
                         }

@@ -95,7 +95,7 @@ impl QrCode {
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
                     if ui.button(tr!("btn_paste")).clicked() {
-                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                        match crate::clipboard::read_text() {
                             Ok(text) => self.input = text,
                             Err(e) => self.error = tr!("err_clipboard", e),
                         }
@@ -204,9 +204,9 @@ impl QrCode {
                 }
             }
             if ui.button(tr!("btn_paste_image")).clicked() {
-                match arboard::Clipboard::new().and_then(|mut cb| cb.get_image()) {
+                match crate::clipboard::read_image() {
                     Ok(img) => {
-                        let rgba = img.bytes;
+                        let rgba = img.rgba;
                         let w = img.width;
                         let h = img.height;
                         // Load preview

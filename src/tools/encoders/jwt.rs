@@ -91,7 +91,7 @@ impl JwtDecoder {
         // Input area
         ui.horizontal(|ui| {
             if ui.button(tr!("btn_paste")).clicked() {
-                match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                match crate::clipboard::read_text() {
                     Ok(text) => self.token = text,
                     Err(e) => self.error = tr!("err_clipboard", e),
                 }
@@ -219,7 +219,7 @@ impl JwtDecoder {
             cols[0].vertical(|ui| {
                 ui.horizontal(|ui| {
                     if ui.button(tr!("btn_paste")).clicked() {
-                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                        match crate::clipboard::read_text() {
                             Ok(text) => self.encode_input = text,
                             Err(e) => self.error = tr!("err_clipboard", e),
                         }

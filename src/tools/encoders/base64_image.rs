@@ -118,7 +118,7 @@ impl Tool for Base64Image {
                     // Decode mode
                     ui.horizontal(|ui| {
                         if ui.button(tr!("btn_paste")).clicked() {
-                            match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                            match crate::clipboard::read_text() {
                                 Ok(text) => {
                                     self.input = text;
                                     self.preview_texture = None;
@@ -128,9 +128,9 @@ impl Tool for Base64Image {
                             }
                         }
                         if ui.button(tr!("btn_paste_image")).clicked() {
-                            match arboard::Clipboard::new().and_then(|mut cb| cb.get_image()) {
+                            match crate::clipboard::read_image() {
                                 Ok(img) => {
-                                    let rgba = img.bytes;
+                                    let rgba = img.rgba;
                                     let w = img.width;
                                     let h = img.height;
                                     let color_img = egui::ColorImage::from_rgba_unmultiplied(

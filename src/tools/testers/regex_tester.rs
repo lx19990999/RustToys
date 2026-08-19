@@ -117,7 +117,7 @@ impl Tool for RegexTester {
                 ui.add_space(io_layout::ROW_GAP);
                 ui.horizontal(|ui| {
                     if ui.button(&lbl_paste).clicked() {
-                        match arboard::Clipboard::new().and_then(|mut cb| cb.get_text()) {
+                        match crate::clipboard::read_text() {
                             Ok(text) => {
                                 self.test_string = text;
                                 self.error.clear();
